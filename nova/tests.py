@@ -4,6 +4,16 @@ from django.test import TestCase
 from django.core import mail
 from django.core.urlresolvers import reverse
 
+from nova.models import Subscription, TOKEN_LENGTH
+
+class TestTokenGeneartion(TestCase):
+    def test_token_autogen(self):
+        sub1 = Subscription.objects.create_with_random_token(email='test1@example.com')
+        sub2 = Subscription.objects.create_with_random_token(email='test2@example.com')
+        self.assertTrue(sub1.token is not None)
+        self.assertTrue(sub2.token is not None)
+        self.assertNotEqual(sub1.token, sub2.token)
+
 class TestSignup(TestCase):
     def _do_subscribe(self, email):
         return self.client.post(reverse('nova.views.subscribe'), {'email': email})
