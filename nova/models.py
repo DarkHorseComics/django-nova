@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from django.db import models
 from django.forms import ValidationError
 from django.contrib.auth.models import User
@@ -20,9 +22,15 @@ class SubscriptionManager(models.Manager):
 class Subscription(models.Model):
     email = models.EmailField(unique=True)
     token = models.CharField(null=True, unique=True, max_length=TOKEN_LENGTH)
+    created_at = models.DateTimeField(auto_now_add=True)
+
     confirmed = models.BooleanField(default=False)
-    signup_ts = models.DateTimeField(auto_now_add=True)
-    confirm_ts = models.DateTimeField(null=True)
+    confirmed_at = models.DateTimeField(null=True)
 
     objects = SubscriptionManager()
+
+    def save(self, *args, **kwargs):
+        if self.confirmed and self.confirmed_at is None:
+            self.confirmed_at = datetime.now()
+        super(Subscription, self).save(*args, **kwargs)
 
