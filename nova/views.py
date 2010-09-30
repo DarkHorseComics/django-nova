@@ -1,3 +1,6 @@
+"""
+Newsletter registration views
+"""
 from django.conf import settings
 from django.template import RequestContext, Context, loader 
 from django.shortcuts import render_to_response, get_object_or_404
@@ -8,13 +11,21 @@ from django.contrib.sites.models import RequestSite
 
 from nova.models import Subscription
 
+
 def _send_message(to_addr, subject_template, body_template, context_vars):
+    """
+    Helper which generates an email to a single recipient, loading templates
+    for the subject line and body.
+    """
     context = Context(context_vars)
     subject = loader.get_template(subject_template).render(context)
     body = loader.get_template(body_template).render(context)
     send_mail(subject, body, settings.DEFAULT_MAIL_FROM, (to_addr,))
 
 def subscribe(request):
+    """
+    Basic signup view
+    """
     if request.method == 'POST':
         email = request.POST['email']
         subscription = Subscription.objects.create_with_random_token(email)
@@ -35,6 +46,9 @@ def subscribe(request):
     return response
 
 def acknowledge(request):
+    """
+    Post-signup redirect
+    """
     subscription = request.session.get('subscription', None)
 
     if not subscription:
@@ -48,6 +62,9 @@ def acknowledge(request):
 
 
 def confirm(request, token):
+    """
+    Target view for URLs included in confirmation emails
+    """
     subscription = get_object_or_404(Subscription, token=token)
     subscription.confirmed = True
     subscription.save()

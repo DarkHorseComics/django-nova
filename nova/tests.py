@@ -1,3 +1,6 @@
+"""
+Basic unit and functional tests for newsletter signups
+"""
 import re
 from datetime import datetime
 
@@ -10,8 +13,14 @@ from nova.models import Subscription, TOKEN_LENGTH
 def _make_subscription(email):
     return Subscription.objects.create_with_random_token(email)
 
-class TestModel(TestCase):
+class TestSubscriptionModel(TestCase):
+    """
+    Model API unit tests
+    """
     def test_token_autogen(self):
+        """
+        Verify that tokens are assigned automatically to each subscription
+        """
         sub1 = _make_subscription('test1@example.com')
         sub2 = _make_subscription('test2@example.com')
         self.assertTrue(sub1.token is not None)
@@ -19,6 +28,9 @@ class TestModel(TestCase):
         self.assertNotEqual(sub1.token, sub2.token)
 
     def test_auto_signup_ts(self):
+        """
+        Check that confirmation timestamps are auto-assigned
+        """
         ts = datetime.now()
         sub = _make_subscription('test@example.com')
         sub.confirmed = True
@@ -27,13 +39,24 @@ class TestModel(TestCase):
         self.assertTrue(sub.confirmed_at is not None)
         self.assertTrue(sub.confirmed_at > ts)
 
-class TestViews(TestCase):
+class TestSignupViews(TestCase):
+    """
+    Functional tests for newsletter signup views
+    """
     def _do_subscribe(self, email):
         subscribe_url = reverse('nova.views.subscribe')
         params = {'email': email}
         return self.client.post(subscribe_url, params, follow=True)
 
     def test_subscribe(self):
+        """
+        Test that a new subscription is created for each POST to the 
+        'subscription' view, and that the generated email includes the posted
+        email address.
+
+        Note: this test can fail if a site template override does not include
+        the email address in its message body.
+        """
         existing_subs = Subscription.objects.all().count()
         email = 'test_subscribe@example.com'
         response = self._do_subscribe(email=email)
@@ -43,6 +66,10 @@ class TestViews(TestCase):
         self.assertEqual(Subscription.objects.all().count(), existing_subs + 1)
 
     def test_confirm(self):
+        """
+        Ensure that the confirmation URL returned in the subscription email 
+        automatically confirms the model instance when loaded via GET.
+        """
         email = 'test_confirm@example.com'
         response = self._do_subscribe(email=email)
 
