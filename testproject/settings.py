@@ -93,3 +93,6 @@ INSTALLED_APPS = (
     # 'django.contrib.admin',
     'nova'
 )
+
+DEFAULT_MAIL_FROM = 'hostmaster@example.com'
+

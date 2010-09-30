@@ -3,6 +3,7 @@ from datetime import datetime
 from django.db import models
 from django.forms import ValidationError
 from django.contrib.auth.models import User
+from django.core.urlresolvers import reverse
 
 TOKEN_LENGTH = 12
 
@@ -34,3 +35,5 @@ class Subscription(models.Model):
             self.confirmed_at = datetime.now()
         super(Subscription, self).save(*args, **kwargs)
 
+    def get_confirm_url(self):
+        return reverse('nova.views.confirm', args=(self.token,))

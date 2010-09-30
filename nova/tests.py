@@ -29,7 +29,9 @@ class TestModel(TestCase):
 
 class TestViews(TestCase):
     def _do_subscribe(self, email):
-        return self.client.post(reverse('nova.views.subscribe'), {'email': email})
+        subscribe_url = reverse('nova.views.subscribe')
+        params = {'email': email}
+        return self.client.post(subscribe_url, params, follow=True)
 
     def test_subscribe(self):
         existing_subs = Subscription.objects.all().count()
@@ -44,15 +46,15 @@ class TestViews(TestCase):
         email = 'test_confirm@example.com'
         response = self._do_subscribe(email=email)
 
-        confirm_url = reverse('nova.views.confirm')
-        url_pat = r'\s(https?://{0}.*)\s'.format(confirm_url)
-        match = re.search(url_pat, mail.outbox[0].body)
-        self.assertTrue(match is not None)
-        
-        full_url = match[0]
-        response = self.client.get(full_url)
-        self.assertTrue(email in response.body)
-
         subscription = Subscription.objects.get(email=email)
+        confirm_url = reverse('nova.views.confirm', args=(subscription.token,))
+
+        message = mail.outbox[0].body
+        self.assertTrue(confirm_url in message)
+        
+        response = self.client.get(confirm_url)
+        self.assertTrue(email in response.content)
+
+        subscription = Subscription.objects.get(pk=subscription.pk)
         self.assertTrue(subscription.confirmed)
 
