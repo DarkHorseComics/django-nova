@@ -8,7 +8,7 @@ from django.core.urlresolvers import reverse
 from nova.models import Subscription, TOKEN_LENGTH
 
 def _make_subscription(email):
-    return Subscription.objects.create_with_random_token(email=email)
+    return Subscription.objects.create_with_random_token(email)
 
 class TestModel(TestCase):
     def test_token_autogen(self):
