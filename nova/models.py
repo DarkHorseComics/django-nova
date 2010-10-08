@@ -12,7 +12,7 @@ from django.core.urlresolvers import reverse
 TOKEN_LENGTH = 12
 
 class SubscriptionManager(models.Manager):
-    def create_with_random_token(self, email):
+    def create_with_random_token(self, email, **kwargs):
         """
         Generates a new subscription request with a random, unique token.
         Uses the underlying database uniqueness constraints to prevent race
@@ -25,7 +25,7 @@ class SubscriptionManager(models.Manager):
                 # the `make_random_password` method returns random strings that
                 # are at least somewhat readable and re-typeable
                 token = User.objects.make_random_password(length=TOKEN_LENGTH)
-                instance = self.create(email=email, token=token)
+                instance = self.create(email=email, token=token, **kwargs)
             except ValidationError:
                 continue
 
@@ -39,6 +39,8 @@ class Subscription(models.Model):
     """
     email = models.EmailField(unique=True)
     token = models.CharField(null=True, blank=True, unique=True, max_length=TOKEN_LENGTH)
+
+    client_addr = models.CharField(max_length=16, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     confirmed = models.BooleanField(default=False)

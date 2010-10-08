@@ -91,8 +91,11 @@ INSTALLED_APPS = (
     'django.contrib.messages',
     # Uncomment the next line to enable the admin:
     'django.contrib.admin',
+    'finch',
     'nova'
 )
 
 DEFAULT_MAIL_FROM = 'hostmaster@example.com'
 
+MAIL_HOST = 'localhost'
+MAIL_PORT = '7525'

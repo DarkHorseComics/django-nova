@@ -52,7 +52,8 @@ def subscribe(request):
             else:
                 # Create new subscription
                 subscription.delete()
-                subscription = Subscription.objects.create_with_random_token(email)
+                ip_addr = request.META.get('REMOTE_ADDR', None)
+                subscription = Subscription.objects.create_with_random_token(email, client_addr=ip_addr)
                 send_email = True
         except Subscription.DoesNotExist:
             # New subscription
@@ -72,7 +73,7 @@ def subscribe(request):
             )
             response = redirect_to(request, reverse(acknowledge))
     else:
-        response = render_to_response('nova/subscribe.html')
+        response = render_to_response('nova/subscribe.html', context_instance=RequestContext(request))
 
     return response
 
