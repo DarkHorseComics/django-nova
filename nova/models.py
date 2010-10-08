@@ -38,11 +38,11 @@ class Subscription(models.Model):
     unique token that is included in follow-up emails to identify it.
     """
     email = models.EmailField(unique=True)
-    token = models.CharField(null=True, unique=True, max_length=TOKEN_LENGTH)
+    token = models.CharField(null=True, blank=True, unique=True, max_length=TOKEN_LENGTH)
     created_at = models.DateTimeField(auto_now_add=True)
 
     confirmed = models.BooleanField(default=False)
-    confirmed_at = models.DateTimeField(null=True)
+    confirmed_at = models.DateTimeField(null=True, blank=True)
 
     objects = SubscriptionManager()
 
@@ -61,3 +61,15 @@ class Subscription(models.Model):
         use in follow-up emails.
         """
         return reverse('nova.views.confirm', args=(self.token,))
+
+    def __unicode__(self):
+        """
+        String-ify this subscription
+        """
+
+        if self.confirmed:
+            status = u'confirmed'
+        else:
+            status = u'unconfirmed'
+
+        return u'{0} ({1})'.format(self.email or 'None', status)
