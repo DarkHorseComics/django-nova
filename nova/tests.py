@@ -85,3 +85,27 @@ class TestSignupViews(TestCase):
         subscription = Subscription.objects.get(pk=subscription.pk)
         self.assertTrue(subscription.confirmed)
 
+    def test_unsubscribe(self):
+        """
+        Test that a subscription is marked unconfirmed for each post to the
+        'unsubscribe' view.
+        """
+        # Create subscription
+        email = 'test_confirm@example.com'
+        self._do_subscribe(email=email)
+
+        # Confirm subscription
+        subscription = Subscription.objects.get(email=email)
+        confirm_url = reverse('nova.views.confirm', args=(subscription.token,))
+        self.client.get(confirm_url)
+
+        # Assert we have a confirmed subscription
+        self.assertEqual(Subscription.objects.filter(confirmed=True).count(), 1)
+
+        # Test unsubscribe view
+        unsubscribe_url = reverse('nova.views.unsubscribe', args=(subscription.token,))
+        response = self.client.get(unsubscribe_url)
+
+        # Test unsubscribe
+        response = self.client.post(unsubscribe_url)
+        self.assertEqual(Subscription.objects.filter(confirmed=True).count(), 0)

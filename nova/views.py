@@ -106,3 +106,26 @@ def confirm(request, token):
         {'email': subscription.email},
         RequestContext(request)
     )
+
+def unsubscribe(request, token):
+    """
+    Unsubscribe view
+    """
+    subscription = get_object_or_404(Subscription, token=token)
+    template = 'nova/unsubscribe.html'
+
+    if request.method == 'POST':
+        subscription.confirmed = False
+        subscription.save()
+        template = 'nova/unsubscribe_acknowledge.html'
+
+    context = {
+        'email': subscription.email,
+        'token': token,
+    }
+        
+    return render_to_response(
+        template,
+        context,
+        RequestContext(request)
+    )
