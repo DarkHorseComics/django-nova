@@ -17,6 +17,6 @@ setup(
         'Framework :: Django',
     ],
     include_package_data=True,
-    package_data={'': []},
+    package_data={'nova': ['templates/nova/*.html']},
     zip_safe=False,
 )
