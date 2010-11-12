@@ -8,6 +8,12 @@
         <form method="POST" action="{% url nova.views.subscribe %}">
             {% csrf_token %}
             <input name="email" type="text" placeholder="Enter your email address"/>
+            {% for newsletter in newsletters %}
+                <label>
+                    <input name="newsletters" type="checkbox" value="{{ n.pk }}" />
+                    {{ n.title }}
+                </label>
+            {% endfor %}
             <input type="submit" class="button" value="Subscribe"/>
         </form>
     </body>

@@ -1,11 +1,11 @@
 This email was generated in response to a request to subscribe the 
 following email address to our product newsletter:
     
-    <{{ subscription.email }}>
+    <{{ email_address.email }}>
 
 You can use the following link to confirm your subscription:
 
-    http://{{ site.domain }}{{ subscription.get_confirm_url }}
+    http://{{ site.domain }}{{ email_address.get_confirm_url }}
 
 If you did not sign up for this subscription or do not wish to receive
 further messages, please do nothing further. We will not send you any
