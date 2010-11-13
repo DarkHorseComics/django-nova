@@ -92,12 +92,14 @@ class Newsletter(models.Model):
     approvers = models.TextField(null=True, blank=True,
                                  help_text=_("A whitespace separated list of email addresses."))
 
+    subscriptions = models.ManyToManyField(EmailAddress, through='Subscription')
+
     @property
     def subscribers(self):
         """
         Return a list of confirmed subscribers.
         """
-        return self.subscription_set.filter(email_address__confirmed=True)
+        return self.subscriptions.filter(confirmed=True)
 
     def __unicode__(self):
         """
@@ -124,7 +126,7 @@ class NewsletterIssue(models.Model):
         subscriptions = self.newsletter.subscribers
         if subscriptions.count() > 0:
             for subscription in subscriptions:
-                send_to = subscription.email_address.email
+                send_to = subscription.email
                 send_mail(self.subject, self.body, settings.DEFAULT_MAIL_FROM, (send_to,))
     
     def send_test(self):
@@ -152,7 +154,7 @@ class Subscription(models.Model):
     """
     This model subscribes an EmailAddress instance to a Newsletter instance.
     """
-    email_address = models.ForeignKey(EmailAddress)
+    email_address = models.ForeignKey(EmailAddress, related_name='subscriptions')
     newsletter = models.ForeignKey(Newsletter)
     created_at = models.DateTimeField(auto_now_add=True)
 
