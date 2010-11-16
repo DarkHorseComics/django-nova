@@ -65,12 +65,8 @@ def subscribe(request):
 
             # Subscribe this email to the selected newsletters
             for newsletter in newsletters: 
-                try:
-                    Subscription.objects.get(email_address=email_address,
-                                             newsletter=newsletter)
-                except Subscription.DoesNotExist:
-                    Subscription.objects.create(email_address=email_address,
-                                                newsletter=newsletter)
+                Subscription.objects.get_or_create(email_address=email_address,
+                    newsletter=newsletter)
 
             if send_email:
                 request.session['email_address'] = email_address
@@ -116,6 +112,9 @@ def acknowledge(request):
 def confirm(request, token):
     """
     Target view for URLs included in confirmation emails
+    :todo: This is a stub implementation for confirming
+    EmailAddresses only, not individual subscriptions. Those
+    subscription management views need to be added later.
     """
     email_address = get_object_or_404(EmailAddress, token=token)
     email_address.confirmed = True
@@ -136,7 +135,10 @@ def unsubscribe(request, token):
     template = 'nova/unsubscribe.html'
 
     if request.method == 'POST':
-        Subscription.objects.filter(email_address=email_address).delete()
+        subscriptions = Subscription.objects.filter(email_address=email_address)
+        for subscription in subscriptions:
+            subscription.active = False
+            subscription.save()
         template = 'nova/unsubscribe_acknowledge.html'
 
     context = {

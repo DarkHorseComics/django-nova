@@ -156,7 +156,10 @@ class Subscription(models.Model):
     """
     email_address = models.ForeignKey(EmailAddress, related_name='subscriptions')
     newsletter = models.ForeignKey(Newsletter)
+    active = models.BooleanField(null=False, blank=False, default=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
+    modified_at = models.DateTimeField(auto_now=True)
 
     def __unicode__(self):
         """

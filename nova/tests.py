@@ -209,7 +209,7 @@ class TestSignupViews(TestCase):
         self.assertEqual(EmailAddress.objects.filter(confirmed=True).count(), 1)
 
         # Assert this email has the correct number of subscriptions
-        self.assertEqual(Subscription.objects.filter(email_address=email_address).count(), 2)
+        self.assertEqual(Subscription.objects.filter(email_address=email_address, active=True).count(), 2)
 
         # Test unsubscribe view
         unsubscribe_url = reverse('nova.views.unsubscribe', args=(email_address.token,))
@@ -217,4 +217,4 @@ class TestSignupViews(TestCase):
 
         # Test unsubscribe
         response = self.client.post(unsubscribe_url)
-        self.assertEqual(Subscription.objects.filter(email_address=email_address).count(), 0)
+        self.assertEqual(Subscription.objects.filter(email_address=email_address, active=False).count(), 2)
