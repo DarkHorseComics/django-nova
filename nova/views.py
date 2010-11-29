@@ -52,7 +52,7 @@ def subscribe(request):
                             You've previously submitted a subscription request. \
                             Please check %s for your confirmation email \
                             or try again in a few minutes.""" % email_address.email
-                        template = template_error
+                        template = error_template 
                     else:
                         email_address.delete()
                         ip_addr = request.META.get('REMOTE_ADDR', None)
