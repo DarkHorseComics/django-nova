@@ -21,13 +21,14 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         max_reminders = options.get('max_reminders', 1)
         addresses = EmailAddress.objects.filter(confirmed=False, reminders_sent__lt=max_reminders)
+
         current_site = Site.objects.get_current()
         
         for address in addresses:
-            send_reminder(address)
+            _send_reminder(address, current_site)
             
 
-def send_reminder(address):
+def _send_reminder(address, current_site):
     """
     Send a reminder message to the address provided
     """
@@ -40,5 +41,6 @@ def send_reminder(address):
                         'site': current_site
                     }
                 )
-    address.reminders_sent += 1
+    
+    address.reminders_sent = address.reminders_sent + 1
     address.save()

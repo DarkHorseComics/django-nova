@@ -5,7 +5,7 @@ import re
 from datetime import datetime
 
 from django.test import TestCase
-from django.core import mail
+from django.core import mail, management
 from django.core.urlresolvers import reverse
 
 from nova.models import EmailAddress, Subscription, Newsletter, NewsletterIssue, TOKEN_LENGTH
@@ -218,3 +218,36 @@ class TestSignupViews(TestCase):
         # Test unsubscribe
         response = self.client.post(unsubscribe_url)
         self.assertEqual(Subscription.objects.filter(email_address=email_address, active=False).count(), 2)
+        
+
+class TestManagement(TestCase):
+    """
+    Test functions related to nova's management commands
+    """
+    def setUp(self):
+        """
+        create some unconfirmed emails
+        """
+        self.email = _make_email('test@tfaw.com')
+        self.email2  = _make_email('test2@tfaw.com')
+        self.email2.reminders_sent=1
+        self.email2.save()
+        
+    def test_send_reminders(self):
+        """
+        Ensure the send_reminders command works as expected
+        """
+        self.assertEqual(self.email.reminders_sent, 0)
+        management.call_command('send_reminders')
+        
+        self.email = EmailAddress.objects.get(pk=self.email.pk)
+        self.email2 = EmailAddress.objects.get(pk=self.email2.pk)
+        
+        self.assertEqual(self.email.reminders_sent, 1)
+        self.assertEqual(self.email2.reminders_sent, 1)
+        
+        self.assertEqual(len(mail.outbox), 1)
+
+        
+        
+        
