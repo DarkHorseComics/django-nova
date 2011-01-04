@@ -43,3 +43,15 @@ class DropSubscriptionTable(SqlMigration):
     class Meta:
         model = Subscription
         requires = [CreateEmailAddressFromSubscription]
+        
+
+class AddRemindersSent(SqlMigration):
+    """
+    Adds a reminders_sent column to the EmailAddress table
+    """
+    sql = """
+        ALTER TABLE {table} ADD COLUMN reminders_sent integer DEFAULT 0
+    """
+    
+    class Meta: 
+        model = EmailAddress

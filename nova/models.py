@@ -47,6 +47,7 @@ class EmailAddress(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     confirmed = models.BooleanField(default=False)
     confirmed_at = models.DateTimeField(null=True, blank=True)
+    reminders_sent = models.PositiveIntegerField(default=0)
 
     objects = EmailAddressManager()
 

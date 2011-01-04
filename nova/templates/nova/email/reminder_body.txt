@@ -1,0 +1,14 @@
+Thank you for your interest in our product newsletter.
+
+This is just a reminder that you've indicated that you'd like to be subscribed to news and
+updates at the following email address:
+
+<{{ email_address.email }}>
+
+Please use the following link to confirm your subscription:
+
+http://{{ site.domain }}{{ email_address.get_confirm_url }}
+
+If you did not sign up for this subscription or do not wish to receive
+further messages, please do nothing further. We will not send you any
+additional email unless you take action by following the link above.
