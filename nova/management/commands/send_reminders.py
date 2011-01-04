@@ -24,7 +24,14 @@ class Command(BaseCommand):
         current_site = Site.objects.get_current()
         
         for address in addresses:
-            _send_message(
+            send_reminder(address)
+            
+
+def send_reminder(address):
+    """
+    Send a reminder message to the address provided
+    """
+    _send_message(
                     address.email, 
                     'nova/email/reminder_subject.txt',
                     'nova/email/reminder_body.txt',
@@ -32,6 +39,6 @@ class Command(BaseCommand):
                         'email_address': address, 
                         'site': current_site
                     }
-            )
-            address.reminders_sent += 1
-            address.save()
+                )
+    address.reminders_sent += 1
+    address.save()
