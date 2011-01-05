@@ -247,7 +247,14 @@ class TestManagement(TestCase):
         self.assertEqual(self.email2.reminders_sent, 1)
         
         self.assertEqual(len(mail.outbox), 1)
-
+    
+    def test_send_reminders_timed(self):
+        """
+        Ensure the time_elapsed argument works as expected
+        """
+        #no reminders will be sent as not enough time has elapsed
+        management.call_command('send_reminders', time_elapsed=600)
+        self.assertEqual(len(mail.outbox), 0)
         
         
         

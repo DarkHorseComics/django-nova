@@ -1,7 +1,7 @@
 """
 A command to send reminders to unconfirmed addresses
 """
-
+from datetime import datetime, timedelta
 from optparse import make_option
 
 from django.contrib.sites.models import Site
@@ -16,11 +16,16 @@ class Command(BaseCommand):
     option_list = BaseCommand.option_list + (
         make_option('-m', '--max', dest='max_reminders', 
             help='Set the maximum number of times a user should be reminded to opt-in'),
+        make_option('-t', '--time', dest='time_elapsed', 
+            help='Set the minimum time between reminders'),
     )
     
     def handle(self, *args, **options):
         max_reminders = options.get('max_reminders', 1)
-        addresses = EmailAddress.objects.filter(confirmed=False, reminders_sent__lt=max_reminders)
+        time_elapsed = options.get('time_elapsed', 0)
+        reminder_time = datetime.now() - timedelta(seconds=time_elapsed)
+        
+        addresses = EmailAddress.objects.filter(confirmed=False, reminders_sent__lt=max_reminders, reminded_at__lte=reminder_time)
 
         current_site = Site.objects.get_current()
         
@@ -32,15 +37,15 @@ def _send_reminder(address, current_site):
     """
     Send a reminder message to the address provided
     """
-    _send_message(
-                    address.email, 
-                    'nova/email/reminder_subject.txt',
-                    'nova/email/reminder_body.txt',
-                    {
-                        'email_address': address, 
-                        'site': current_site
-                    }
-                )
+    _send_message(address.email, 
+                  'nova/email/reminder_subject.txt',
+                  'nova/email/reminder_body.txt',
+                  {
+                   'email_address': address, 
+                   'site': current_site
+                   }
+                  )
     
     address.reminders_sent = address.reminders_sent + 1
+    address.reminded_at = datetime.now()
     address.save()

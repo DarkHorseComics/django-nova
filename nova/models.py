@@ -48,7 +48,10 @@ class EmailAddress(models.Model):
     confirmed = models.BooleanField(default=False)
     confirmed_at = models.DateTimeField(null=True, blank=True)
     reminders_sent = models.PositiveIntegerField(default=0)
-
+    
+    #auto_now_add so we don't remind some user immediately after they sign up
+    reminded_at = models.DateTimeField(auto_now_add=True)
+    
     objects = EmailAddressManager()
 
     def save(self, *args, **kwargs):

@@ -55,3 +55,12 @@ class AddRemindersSent(SqlMigration):
     
     class Meta: 
         model = EmailAddress
+        
+class AddRemindedAt(SqlMigration):
+    sql = """
+        ALTER TABLE {table} ADD COLUMN reminded_at timestamp with time zone
+    """
+    
+    class Meta: 
+        model = EmailAddress
+    
