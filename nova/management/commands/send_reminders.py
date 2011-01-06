@@ -4,6 +4,7 @@ A command to send reminders to unconfirmed addresses
 from datetime import datetime, timedelta
 from optparse import make_option
 
+from django.db.models import Q
 from django.contrib.sites.models import Site
 from django.core.management.base import BaseCommand,CommandError
 
@@ -16,15 +17,17 @@ class Command(BaseCommand):
     option_list = BaseCommand.option_list + (
         make_option('-m', '--max', dest='max_reminders', 
             help='Set the maximum number of times a user should be reminded to opt-in'),
-        make_option('-t', '--time', dest='time_elapsed', 
-            help='Set the minimum time between reminders'),
+        make_option('-d', '--days', dest='days_elapsed', 
+            help='Set the minimum number of days between reminders'),
     )
     
     def handle(self, *args, **options):
-        max_reminders = options.get('max_reminders', 1)
-        time_elapsed = options.get('time_elapsed', 0)
-        reminder_time = datetime.now() - timedelta(seconds=time_elapsed)
         
+        max_reminders = options.get('max_reminders', 1)
+        days_elapsed = options.get('days_elapsed', 0)
+                
+        reminder_time = datetime.now() - timedelta(days=days_elapsed)
+                
         addresses = EmailAddress.objects.filter(confirmed=False, reminders_sent__lt=max_reminders, reminded_at__lte=reminder_time)
 
         current_site = Site.objects.get_current()

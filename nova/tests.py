@@ -238,6 +238,8 @@ class TestManagement(TestCase):
         Ensure the send_reminders command works as expected
         """
         self.assertEqual(self.email.reminders_sent, 0)
+        
+        #remind all, no matter when they signed up
         management.call_command('send_reminders')
         
         self.email = EmailAddress.objects.get(pk=self.email.pk)
@@ -253,7 +255,7 @@ class TestManagement(TestCase):
         Ensure the time_elapsed argument works as expected
         """
         #no reminders will be sent as not enough time has elapsed
-        management.call_command('send_reminders', time_elapsed=600)
+        management.call_command('send_reminders', days_elapsed=1)
         self.assertEqual(len(mail.outbox), 0)
         
         
