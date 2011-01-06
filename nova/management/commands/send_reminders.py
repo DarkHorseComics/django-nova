@@ -26,7 +26,8 @@ class Command(BaseCommand):
         max_reminders = options.get('max_reminders', 1)
         days_elapsed = options.get('days_elapsed', 0)
                 
-        reminder_time = datetime.now() - timedelta(days=days_elapsed)
+            
+        reminder_time = datetime.now() - timedelta(days=int(days_elapsed))
                 
         addresses = EmailAddress.objects.filter(confirmed=False, reminders_sent__lt=max_reminders, reminded_at__lte=reminder_time)
 
