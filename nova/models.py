@@ -11,6 +11,7 @@ from django.contrib.auth.models import User
 from django.core.urlresolvers import reverse
 from django.core.mail import send_mail
 from django.utils.translation import ugettext_lazy as _
+from django.template import Context, Template
 
 TOKEN_LENGTH = 12
 
@@ -74,13 +75,7 @@ class EmailAddress(models.Model):
         """
         String-ify this email address
         """
-
-        if self.confirmed:
-            status = u'confirmed'
-        else:
-            status = u'unconfirmed'
-
-        return u'{0} ({1})'.format(self.email or 'None', status)
+        return self.email
 
     class Meta:
         verbose_name_plural = 'Email Addresses'
@@ -118,20 +113,42 @@ class NewsletterIssue(models.Model):
     line and template that will be sent out to subscribers.
     """
     subject = models.CharField(max_length=255, null=False, blank=False)
-    body = models.TextField(null=False, blank=False)
+    template = models.TextField(null=False, blank=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     newsletter = models.ForeignKey(Newsletter)
+
+    def render(self, email, extra_context=None):
+        """
+        Render a django template into a formatted newsletter issue.
+        :todo: Run through premailer and link tracking
+        """
+        context = Context({
+            'issue': self,
+            'email': email,
+        })
+
+        if extra_context:
+            context.update(extra_context)
+
+        # Render template
+        template = Template(self.template)
+        rendered_template = template.render(context)
+
+        # Run premailer
+        # Link tracking
+
+        return rendered_template
 
     def send(self):
         """
         Sends this issue to subscribers of this newsletter. 
         """
-        subscriptions = self.newsletter.subscribers
-        if subscriptions.count() > 0:
-            for subscription in subscriptions:
-                send_to = subscription.email
-                send_mail(self.subject, self.body, settings.DEFAULT_MAIL_FROM, (send_to,))
+        email_addresses = self.newsletter.subscribers
+        if email_addresses.count() > 0:
+            for email_address in email_addresses:
+                send_to = email_address
+                send_mail(self.subject, self.render(send_to), settings.DEFAULT_MAIL_FROM, (send_to,))
     
     def send_test(self):
         """
@@ -142,10 +159,7 @@ class NewsletterIssue(models.Model):
             for email in approvers:
                 send_to = email
                 subject = self.subject
-                body = """\
-                *** This is only a test. If actually sent, this message would go to {subscribers} subscribers ***
-                {body}""".format(subscribers=self.newsletter.subscribers.count(), body=self.body)
-                send_mail(subject, body, settings.DEFAULT_MAIL_FROM, (send_to,))
+                send_mail(subject, self.render(send_to), settings.DEFAULT_MAIL_FROM, (send_to,))
 
     def __unicode__(self):
         """
@@ -169,5 +183,5 @@ class Subscription(models.Model):
         """
         String-ify this subscription
         """
-        return u'{email} to {newsletter})'.format(email=self.email_address.email,
+        return u'{email} to {newsletter})'.format(email=self.email_address,
                                                   newsletter=self.newsletter)

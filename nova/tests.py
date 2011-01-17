@@ -70,13 +70,13 @@ class TestNewsletterIssueModel(TestCase):
         # Create an issue for each newsletter
         self.newsletter_issue1 = NewsletterIssue()
         self.newsletter_issue1.subject = 'Test Newsletter Issue 1'
-        self.newsletter_issue1.body = 'Test'
+        self.newsletter_issue1.template = 'Test'
         self.newsletter_issue1.newsletter = self.newsletter1
         self.newsletter_issue1.save()
 
         self.newsletter_issue2 = NewsletterIssue()
         self.newsletter_issue2.subject = 'Test Newsletter Issue 2'
-        self.newsletter_issue2.body = 'Test'
+        self.newsletter_issue2.template = 'Test'
         self.newsletter_issue2.newsletter = self.newsletter2
         self.newsletter_issue2.save()
 
@@ -98,6 +98,30 @@ class TestNewsletterIssueModel(TestCase):
         self.exclude_email.save()
         Subscription.objects.create(email_address=self.exclude_email, newsletter=self.newsletter2)
 
+    def test_render(self):
+        """
+        Verify that the NewsletterIssue template is correctly
+        rendered.
+        """
+        email = 'test@example.com'
+
+        template = """\
+        Issue ID: {{ issue.pk }}
+        Date: {% now "Y-m-d" %}
+        Email: {{ email }}
+        """
+        expected_template = """\
+        Issue ID: {issue_id}
+        Date: {date:%Y-%m-%d}
+        Email: {email}
+        """.format(issue_id=self.newsletter_issue1.pk, date=datetime.now(), email=email)
+
+        self.newsletter_issue1.template = template
+        self.newsletter_issue1.save()
+
+        rendered_template = self.newsletter_issue1.render(email=email)
+        self.assertEqual(rendered_template, expected_template)
+
     def test_send_test(self):
         """
         Verify the send_test method only sends an issue
@@ -115,8 +139,7 @@ class TestNewsletterIssueModel(TestCase):
         for message in mail.outbox:
             self.assertTrue(message.to[0] in approvers)
             self.assertEqual(message.subject, self.newsletter_issue1.subject)
-            self.assertTrue('This is only a test' in message.body)
-            self.assertTrue(self.newsletter_issue1.body in message.body)
+            self.assertTrue(self.newsletter_issue1.template in message.body)
 
     def test_send(self):
         """
