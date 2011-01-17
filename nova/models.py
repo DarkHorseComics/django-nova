@@ -118,6 +118,7 @@ class Newsletter(models.Model):
 
 class PremailerException(Exception):
     """
+    Exception thrown when premailer command finishes with a return code other than 0
     """
 
 class NewsletterIssue(models.Model):
@@ -167,11 +168,13 @@ class NewsletterIssue(models.Model):
                 '--base-url', '{0}://{1}'.format(base_protocol, Site.objects.get_current().domain)]
         if plaintext:
             args += ['--mode', 'txt']
-        premailed, err = Popen(args, stdout=PIPE, stderr=PIPE).communicate()
 
-        os.remove(temp_file.name) 
+        p = Popen(args, stdout=PIPE, stderr=PIPE)
+        premailed, err = p.communicate()
 
-        if err:
+        os.remove(temp_file.name)
+
+        if p.returncode != 0:
             raise PremailerException(err)
         else:
             return premailed
