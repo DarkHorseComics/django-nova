@@ -2,7 +2,11 @@
 Basic model for a newsletter subscription, minus the newsletter (for now).
 More to come...
 """
+import os
 from datetime import datetime
+from subprocess import Popen, PIPE
+from tempfile import NamedTemporaryFile
+from django.contrib.sites.models import Site
 
 from django.db import models
 from django.forms import ValidationError
@@ -75,7 +79,13 @@ class EmailAddress(models.Model):
         """
         String-ify this email address
         """
-        return self.email
+
+        if self.confirmed:
+            status = u'confirmed'
+        else:
+            status = u'unconfirmed'
+
+        return u'{0} ({1})'.format(self.email or 'None', status)
 
     class Meta:
         verbose_name_plural = 'Email Addresses'
@@ -106,6 +116,9 @@ class Newsletter(models.Model):
         """
         return u'%s' % self.title
 
+class PremailerException(Exception):
+    """
+    """
 
 class NewsletterIssue(models.Model):
     """
@@ -140,6 +153,29 @@ class NewsletterIssue(models.Model):
 
         return rendered_template
 
+    def premail(self, body_text=None, plaintext=False, base_protocol='http'):
+        """
+        Run 'premailer' on the specified email body to format html to be readable by email clients
+        """
+        if body_text is None:
+            body_text = self.body
+        temp_file = NamedTemporaryFile(delete=False)
+        temp_file.write(body_text)
+        temp_file.close()
+
+        args = ['premailer', temp_file.name,
+                '--base-url', '{0}://{1}'.format(base_protocol, Site.objects.get_current().domain)]
+        if plaintext:
+            args += ['--mode', 'txt']
+        premailed, err = Popen(args, stdout=PIPE, stderr=PIPE).communicate()
+
+        os.remove(temp_file.name) 
+
+        if err:
+            raise PremailerException(err)
+        else:
+            return premailed
+        
     def send(self):
         """
         Sends this issue to subscribers of this newsletter. 
