@@ -6,7 +6,7 @@ project specific settings:
 NOVA_CONTEXT_PROCESSORS:
     defines a list of functions (similar to django's TEMPLATE_CONTEXT_PROCESSORS) that are called
     when NewsletterIssues render themselves, just before they are sent.  Each function must accept
-    the arguments newsletter and email.
+    the arguments newsletter_issue and email.
 """
 import os
 from datetime import datetime
@@ -173,7 +173,7 @@ class NewsletterIssue(models.Model):
             module, attr = context_processor.rsplit('.', 1)
             module = __import__(module, fromlist=[attr])
             processor = getattr(module, attr)
-            context.update(processor(newsletter=self, email=email))
+            context.update(processor(newsletter_issue=self, email=email))
 
         # Render template
         template = Template(self.template)

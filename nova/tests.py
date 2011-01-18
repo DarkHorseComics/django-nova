@@ -1,7 +1,6 @@
 """
 Basic unit and functional tests for newsletter signups
 """
-import re
 from datetime import datetime
 
 from django.test import TestCase
@@ -72,11 +71,11 @@ class TestEmailModel(TestCase):
         self.assertTrue(email.confirmed_at > ts)
 
 
-def test_context_processor(newsletter, email):
+def test_context_processor(newsletter_issue, email):
     """
     nova context processor for testing.
     """
-    if not newsletter or not email:
+    if not newsletter_issue or not email:
         return {'test': 'error!'}
     else:
         return {'test': 'extra test context'}
