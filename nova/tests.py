@@ -173,8 +173,7 @@ class TestNewsletterIssueModel(TestCase):
         for message in mail.outbox:
             self.assertTrue(message.to[0] in approvers)
             self.assertEqual(message.subject, self.newsletter_issue1.subject)
-            self.assertTrue('This is only a test' in message.body)
-            self.assertTrue(self.newsletter_issue1.body in message.body)
+            self.assertTrue(self.newsletter_issue1.template in message.body)
 
     def test_send(self):
         """
