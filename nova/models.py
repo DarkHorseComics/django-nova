@@ -159,7 +159,7 @@ class NewsletterIssue(models.Model):
         Run 'premailer' on the specified email body to format html to be readable by email clients
         """
         if body_text is None:
-            body_text = self.body
+            body_text = self.template
         temp_file = NamedTemporaryFile(delete=False)
         temp_file.write(body_text)
         temp_file.close()
