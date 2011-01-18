@@ -159,6 +159,13 @@ class TestNewsletterIssueModel(TestCase):
         issue_template = Template(issue.template).render(context)
         self.assertEqual(expected_template, issue_template)
 
+        # Verify an existing template is not overwritten
+        new_template = 'hai'
+        issue.template = new_template
+        issue.save()
+        self.assertEqual(new_template,
+            NewsletterIssue.objects.get(pk=issue.pk).template)
+
     def test_render(self):
         """
         Verify that the NewsletterIssue template is correctly
