@@ -7,6 +7,7 @@ from datetime import datetime
 from django.test import TestCase
 from django.core import mail, management
 from django.core.urlresolvers import reverse
+from django.conf import settings
 
 from nova.models import EmailAddress, Subscription, Newsletter, NewsletterIssue, send_multipart_mail
 
@@ -30,19 +31,19 @@ class TestUtilites(TestCase):
         Verify that the send_multipart_mail function actually sends multipart emails
         """
         subject = "test subject"
-        txt_message = "plaintext email"
-        html_message = "<html><body><p>html message</p></body></html>"
+        txt_body = "plaintext email"
+        html_body = "<html><body><p>html message</p></body></html>"
         from_email = "from@testing.darkhorse.com"
         recipient_list = ["to@testing.darkhorse.com"]
 
-        send_multipart_mail(subject, txt_message, html_message, from_email, recipient_list)
+        send_multipart_mail(subject, txt_body, html_body, from_email, recipient_list)
 
         self.assertEqual(len(mail.outbox), 1)
         message = mail.outbox[0]
 
         self.assertEqual(subject, message.subject)
-        self.assertEqual(txt_message, message.body)
-        self.assertEqual((html_message, 'text/html'), message.alternatives[0])
+        self.assertEqual(txt_body, message.body)
+        self.assertEqual((html_body, 'text/html'), message.alternatives[0])
 
 class TestEmailModel(TestCase):
     """
@@ -69,6 +70,16 @@ class TestEmailModel(TestCase):
         email = EmailAddress.objects.get(pk=email.pk)
         self.assertTrue(email.confirmed_at is not None)
         self.assertTrue(email.confirmed_at > ts)
+
+
+def test_context_processor(newsletter, email):
+    """
+    nova context processor for testing.
+    """
+    if not newsletter or not email:
+        return {'test': 'error!'}
+    else:
+        return {'test': 'extra test context'}
 
 class TestNewsletterIssueModel(TestCase):
     """
@@ -145,6 +156,23 @@ class TestNewsletterIssueModel(TestCase):
 
         rendered_template = self.newsletter_issue1.render(email=email)
         self.assertEqual(rendered_template, expected_template)
+
+    def test_nova_context_processors(self):
+        """
+        Verify that NewsletterIssues use NOVA_CONTEXT_PROCESSORS to render themselves when
+        render() is called
+        """
+        old_settings = getattr(settings, 'NOVA_CONTEXT_PROCESSORS', '!unset')
+        settings.NOVA_CONTEXT_PROCESSORS = ['nova.tests.test_context_processor']
+
+        try:
+            issue = NewsletterIssue(template="{{ test }}")
+            self.assertEqual('extra test context', issue.render(None))
+        finally:
+            if old_settings == '!unset':
+                del settings.NOVA_CONTEXT_PROCESSORS
+            else:
+                settings.NOVA_CONTEXT_PROCESSORS = old_settings
 
     def test_premail(self):
         """

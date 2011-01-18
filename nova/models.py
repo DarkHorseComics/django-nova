@@ -1,6 +1,12 @@
 """
 Basic model for a newsletter subscription, minus the newsletter (for now).
 More to come...
+
+project specific settings:
+NOVA_CONTEXT_PROCESSORS:
+    defines a list of functions (similar to django's TEMPLATE_CONTEXT_PROCESSORS) that are called
+    when NewsletterIssues render themselves, just before they are sent.  Each function must accept
+    the arguments newsletter and email.
 """
 import os
 from datetime import datetime
@@ -151,7 +157,9 @@ class NewsletterIssue(models.Model):
     def render(self, email, plaintext=False, extra_context=None):
         """
         Render a django template into a formatted newsletter issue.
-        :todo: Run through premailer and link tracking
+
+        uses the setting NOVA_CONTEXT_PROCESSORS to load a list of functions, similar to django's
+         template context processors to add extra values to the context dictionary.
         """
         context = Context({
             'issue': self,
@@ -160,6 +168,12 @@ class NewsletterIssue(models.Model):
 
         if extra_context:
             context.update(extra_context)
+
+        for context_processor in getattr(settings, 'NOVA_CONTEXT_PROCESSORS', []):
+            module, attr = context_processor.rsplit('.', 1)
+            module = __import__(module, fromlist=[attr])
+            processor = getattr(module, attr)
+            context.update(processor(newsletter=self, email=email))
 
         # Render template
         template = Template(self.template)
@@ -192,7 +206,7 @@ class NewsletterIssue(models.Model):
             raise PremailerException(err)
         else:
             return premailed
-        
+
     def send(self):
         """
         Sends this issue to subscribers of this newsletter. 
@@ -201,8 +215,8 @@ class NewsletterIssue(models.Model):
         if email_addresses.count() > 0:
             for send_to in email_addresses:
                 send_multipart_mail(self.subject,
-                    txt_message=self.render(send_to, plaintext=True),
-                    html_message=self.render(send_to, plaintext=False),
+                    txt_body=self.render(send_to, plaintext=True),
+                    html_body=self.render(send_to, plaintext=False),
                     from_email=settings.DEFAULT_MAIL_FROM, recipient_list=(send_to,)
                 )
 
@@ -215,8 +229,8 @@ class NewsletterIssue(models.Model):
         if len(approvers) > 0:
             for send_to in approvers:
                 send_multipart_mail(self.subject,
-                    txt_message=self.render(send_to, plaintext=True),
-                    html_message=self.render(send_to, plaintext=False),
+                    txt_body=self.render(send_to, plaintext=True),
+                    html_body=self.render(send_to, plaintext=False),
                     from_email=settings.DEFAULT_MAIL_FROM, recipient_list=(send_to,)
                 )
 
