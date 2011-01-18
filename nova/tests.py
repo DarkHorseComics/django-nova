@@ -178,7 +178,7 @@ class TestNewsletterIssueModel(TestCase):
     def test_send(self):
         """
         Ensure that a newsletter issue is successfully sent
-        to all *confirmed* subsribers of that newsletter.
+        to all *confirmed* subscribers of that newsletter.
         """
         self.assertEqual(self.newsletter1.subscribers.count(), 3)
 
