@@ -12,7 +12,7 @@ from django.forms import ValidationError
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.urlresolvers import reverse
-from django.core.mail import send_mail
+from django.core.mail import EmailMultiAlternatives, send_mail
 from django.utils.translation import ugettext_lazy as _
 from django.template import Context, Template
 
@@ -52,10 +52,10 @@ class EmailAddress(models.Model):
     confirmed = models.BooleanField(default=False)
     confirmed_at = models.DateTimeField(null=True, blank=True)
     reminders_sent = models.PositiveIntegerField(default=0)
-    
+
     #auto_now_add so we don't remind some user immediately after they sign up
     reminded_at = models.DateTimeField(auto_now_add=True)
-    
+
     objects = EmailAddressManager()
 
     def save(self, *args, **kwargs):
@@ -111,7 +111,7 @@ class Newsletter(models.Model):
 
     def __unicode__(self):
         """
-        String-ify this newsletter 
+        String-ify this newsletter
         """
         return u'%s' % self.title
 
@@ -119,6 +119,13 @@ class PremailerException(Exception):
     """
     Exception thrown when premailer command finishes with a return code other than 0
     """
+
+def send_multipart_mail(subject, txt_message, html_message, from_email, recipient_list,
+                        fail_silently=False):
+    message = EmailMultiAlternatives(subject, body=txt_message,
+                                     from_email=from_email, to=recipient_list)
+    message.attach_alternative(html_message, "text/html")
+    return message.send(fail_silently)
 
 class NewsletterIssue(models.Model):
     """
@@ -131,7 +138,7 @@ class NewsletterIssue(models.Model):
 
     newsletter = models.ForeignKey(Newsletter)
 
-    def render(self, email, extra_context=None):
+    def render(self, email, plaintext=False, extra_context=None):
         """
         Render a django template into a formatted newsletter issue.
         :todo: Run through premailer and link tracking
@@ -149,6 +156,8 @@ class NewsletterIssue(models.Model):
         rendered_template = template.render(context)
 
         # Run premailer
+        rendered_template = self.premail(body_text=rendered_template, plaintext=plaintext)
+
         # Link tracking
 
         return rendered_template
@@ -178,20 +187,26 @@ class NewsletterIssue(models.Model):
         """
         email_addresses = self.newsletter.subscribers
         if email_addresses.count() > 0:
-            for email_address in email_addresses:
-                send_to = email_address
-                send_mail(self.subject, self.render(send_to), settings.DEFAULT_MAIL_FROM, (send_to,))
-    
+            for send_to in email_addresses:
+                send_multipart_mail(self.subject,
+                    txt_message=self.render(send_to, plaintext=True),
+                    html_message=self.render(send_to, plaintext=False),
+                    from_email=settings.DEFAULT_MAIL_FROM, recipient_list=(send_to,)
+                )
+
+
     def send_test(self):
         """
         Sends this issue to an email address specified by an admin user
         """
         approvers = self.newsletter.approvers.split()
         if len(approvers) > 0:
-            for email in approvers:
-                send_to = email
-                subject = self.subject
-                send_mail(subject, self.render(send_to), settings.DEFAULT_MAIL_FROM, (send_to,))
+            for send_to in approvers:
+                send_multipart_mail(self.subject,
+                    txt_message=self.render(send_to, plaintext=True),
+                    html_message=self.render(send_to, plaintext=False),
+                    from_email=settings.DEFAULT_MAIL_FROM, recipient_list=(send_to,)
+                )
 
     def __unicode__(self):
         """
