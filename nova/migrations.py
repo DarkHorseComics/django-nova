@@ -1,6 +1,6 @@
 from finch.base import Migration, SqlMigration
 
-from nova.models import EmailAddress, Subscription, NewsletterIssue
+from nova.models import *
 
 class AddClientAddr(SqlMigration):
     sql = "ALTER TABLE {table} ADD COLUMN client_addr VARCHAR(16)"
@@ -70,3 +70,10 @@ class RenameBodyField(SqlMigration):
 
     class Meta:
         model = NewsletterIssue
+
+class AddDefaultTemplateField(SqlMigration):
+    sql = """
+    ALTER TABLE {table} ADD COLUMN default_template VARCHAR(255)"""
+
+    class Meta:
+        model = Newsletter

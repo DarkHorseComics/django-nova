@@ -7,6 +7,8 @@ from django.test import TestCase
 from django.core import mail, management
 from django.core.urlresolvers import reverse
 from django.conf import settings
+from django.template import Template, Context
+from django.template.loader import render_to_string
 
 from nova.models import EmailAddress, Subscription, Newsletter, NewsletterIssue, send_multipart_mail
 
@@ -131,6 +133,31 @@ class TestNewsletterIssueModel(TestCase):
         self.exclude_email.confirmed = True
         self.exclude_email.save()
         Subscription.objects.create(email_address=self.exclude_email, newsletter=self.newsletter2)
+
+    def test_default_template(self):
+        """
+        Verify that on save a NewsletterIssue is assigned
+        a default template from the parent Newsletter.
+        """
+        template_name = 'nova/test.html'
+        self.newsletter1.default_template = template_name
+        self.newsletter1.save()
+
+        # Sanity check
+        self.assertEqual(self.newsletter1.default_template, template_name)
+
+        issue = NewsletterIssue()
+        issue.subject = 'Test'
+        issue.body = 'Test'
+        issue.newsletter = self.newsletter1
+        issue.save()
+
+        self.assertTrue(issue.template is not None)
+
+        context = Context({})
+        expected_template = render_to_string(template_name, context)
+        issue_template = Template(issue.template).render(context)
+        self.assertEqual(expected_template, issue_template)
 
     def test_render(self):
         """

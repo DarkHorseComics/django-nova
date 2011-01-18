@@ -24,7 +24,8 @@ from django.contrib.auth.models import User
 from django.core.urlresolvers import reverse
 from django.core.mail import EmailMultiAlternatives
 from django.utils.translation import ugettext_lazy as _
-from django.template import Context, Template
+from django.template import Context, Template, TemplateDoesNotExist
+from django.template.loader import find_template_loader
 
 TOKEN_LENGTH = 12
 
@@ -106,9 +107,11 @@ class Newsletter(models.Model):
     """
     title = models.CharField(max_length=255, null=False, blank=False)
     active = models.BooleanField(null=False, blank=False)
-    created_at = models.DateTimeField(auto_now_add=True)
     approvers = models.TextField(null=True, blank=True,
-                                 help_text=_("A whitespace separated list of email addresses."))
+        help_text=_("A whitespace separated list of email addresses."))
+    default_template = models.CharField(max_length=255, null=True, blank=True,
+        help_text=_("The name of a default template to use for issues of this newsletter."))
+    created_at = models.DateTimeField(auto_now_add=True)
 
     subscriptions = models.ManyToManyField(EmailAddress, through='Subscription')
 
@@ -167,15 +170,29 @@ class NewsletterIssue(models.Model):
     line and template that will be sent out to subscribers.
     """
     subject = models.CharField(max_length=255, null=False, blank=False)
-    template = models.TextField(null=False, blank=False)
+    template = models.TextField(null=False, blank=True,
+        help_text=_("If template is left empty we'll use the default template from the parent newsletter."))
     created_at = models.DateTimeField(auto_now_add=True)
 
     newsletter = models.ForeignKey(Newsletter)
 
+    def save(self, *args, **kwargs):
+        """
+        If template is blank and the parent newsletter has a default
+        template, load that default from disk.
+        """
+        if not self.template:
+            if self.newsletter.default_template:
+                try:
+                    self.template = get_raw_template(self.newsletter.default_template)
+                except Exception:
+                    pass
+
+        super(NewsletterIssue, self).save(*args, **kwargs)
+
     def render(self, email, plaintext=False, extra_context=None):
         """
         Render a django template into a formatted newsletter issue.
-
         uses the setting NOVA_CONTEXT_PROCESSORS to load a list of functions, similar to django's
          template context processors to add extra values to the context dictionary.
         """
@@ -200,8 +217,6 @@ class NewsletterIssue(models.Model):
 
         # Run premailer
         rendered_template = self.premail(body_text=rendered_template, plaintext=plaintext)
-
-        # Link tracking
 
         return rendered_template
 
@@ -279,3 +294,17 @@ class Subscription(models.Model):
         """
         return u'{email} to {newsletter})'.format(email=self.email_address,
                                                   newsletter=self.newsletter)
+
+def get_raw_template(name, dirs=None):
+    """
+    Uses Django's template loaders to find and return the
+    raw template source. 
+    """
+    for loader_name in settings.TEMPLATE_LOADERS:
+        loader = find_template_loader(loader_name)
+        if loader is not None:
+            try:
+                return loader.load_template_source(name)[0]
+            except TemplateDoesNotExist:
+                pass
+    raise TemplateDoesNotExist(name)
