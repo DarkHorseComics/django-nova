@@ -5,7 +5,6 @@ More to come...
 import os
 from datetime import datetime
 from subprocess import Popen, PIPE
-from tempfile import NamedTemporaryFile
 from django.contrib.sites.models import Site
 
 from django.db import models
@@ -160,19 +159,13 @@ class NewsletterIssue(models.Model):
         """
         if body_text is None:
             body_text = self.template
-        temp_file = NamedTemporaryFile(delete=False)
-        temp_file.write(body_text)
-        temp_file.close()
 
-        args = ['premailer', temp_file.name,
+        args = ['premailer',
+                '--mode', 'txt' if plaintext else 'html',
                 '--base-url', '{0}://{1}'.format(base_protocol, Site.objects.get_current().domain)]
-        if plaintext:
-            args += ['--mode', 'txt']
 
-        p = Popen(args, stdout=PIPE, stderr=PIPE)
-        premailed, err = p.communicate()
-
-        os.remove(temp_file.name)
+        p = Popen(args, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+        premailed, err = p.communicate(input=body_text)
 
         if p.returncode != 0:
             raise PremailerException(err)
