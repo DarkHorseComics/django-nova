@@ -8,7 +8,7 @@ from django.test import TestCase
 from django.core import mail, management
 from django.core.urlresolvers import reverse
 
-from nova.models import EmailAddress, Subscription, Newsletter, NewsletterIssue, TOKEN_LENGTH
+from nova.models import EmailAddress, Subscription, Newsletter, NewsletterIssue, send_multipart_mail
 
 def _make_newsletter(title):
     return Newsletter.objects.create(title=title)
@@ -19,6 +19,30 @@ def _make_email(email):
 def _make_subscription(email_address, newsletter):
     return Subscription.objects.create(email_address=email_address,
                                        newsletter=newsletter)
+
+class TestUtilites(TestCase):
+    """
+    Test utility functions defined for Nova
+    """
+
+    def test_send_multipart(self):
+        """
+        Verify that the send_multipart_mail function actually sends multipart emails
+        """
+        subject = "test subject"
+        txt_message = "plaintext email"
+        html_message = "<html><body><p>html message</p></body></html>"
+        from_email = "from@testing.darkhorse.com"
+        recipient_list = ["to@testing.darkhorse.com"]
+
+        send_multipart_mail(subject, txt_message, html_message, from_email, recipient_list)
+
+        self.assertEqual(len(mail.outbox), 1)
+        message = mail.outbox[0]
+
+        self.assertEqual(subject, message.subject)
+        self.assertEqual(txt_message, message.body)
+        self.assertEqual((html_message, 'text/html'), message.alternatives[0])
 
 class TestEmailModel(TestCase):
     """
