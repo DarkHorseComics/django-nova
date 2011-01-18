@@ -6,7 +6,9 @@ project specific settings:
 NOVA_CONTEXT_PROCESSORS:
     defines a list of functions (similar to django's TEMPLATE_CONTEXT_PROCESSORS) that are called
     when NewsletterIssues render themselves, just before they are sent.  Each function must accept
-    the arguments newsletter_issue and email.
+    the following arguments:
+        newsletter_issue: NewsletterIssue instance that is sending the email
+        email: EmailAddress instance that is receiving the email
 """
 import os
 from datetime import datetime
@@ -212,13 +214,12 @@ class NewsletterIssue(models.Model):
         Sends this issue to subscribers of this newsletter. 
         """
         email_addresses = self.newsletter.subscribers
-        if email_addresses.count() > 0:
-            for send_to in email_addresses:
-                send_multipart_mail(self.subject,
-                    txt_body=self.render(send_to, plaintext=True),
-                    html_body=self.render(send_to, plaintext=False),
-                    from_email=settings.DEFAULT_MAIL_FROM, recipient_list=(send_to,)
-                )
+        for send_to in email_addresses:
+            send_multipart_mail(self.subject,
+                txt_body=self.render(send_to, plaintext=True),
+                html_body=self.render(send_to, plaintext=False),
+                from_email=settings.DEFAULT_MAIL_FROM, recipient_list=(send_to.email,)
+            )
 
 
     def send_test(self):
@@ -226,13 +227,13 @@ class NewsletterIssue(models.Model):
         Sends this issue to an email address specified by an admin user
         """
         approvers = self.newsletter.approvers.split()
-        if len(approvers) > 0:
-            for send_to in approvers:
-                send_multipart_mail(self.subject,
-                    txt_body=self.render(send_to, plaintext=True),
-                    html_body=self.render(send_to, plaintext=False),
-                    from_email=settings.DEFAULT_MAIL_FROM, recipient_list=(send_to,)
-                )
+        for approver_email in approvers:
+            send_to, created = EmailAddress.objects.get_or_create(email=approver_email)
+            send_multipart_mail(self.subject,
+                txt_body=self.render(send_to, plaintext=True),
+                html_body=self.render(send_to, plaintext=False),
+                from_email=settings.DEFAULT_MAIL_FROM, recipient_list=(send_to.email,)
+            )
 
     def __unicode__(self):
         """

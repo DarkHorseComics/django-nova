@@ -76,7 +76,7 @@ def test_context_processor(newsletter_issue, email):
     nova context processor for testing.
     """
     if not newsletter_issue or not email:
-        return {'test': 'error!'}
+        return {'test': 'error! got newsletter_issue:{0}, email:{1}'.format(newsletter_issue, email)}
     else:
         return {'test': 'extra test context'}
 
@@ -166,7 +166,7 @@ class TestNewsletterIssueModel(TestCase):
 
         try:
             issue = NewsletterIssue(template="{{ test }}")
-            self.assertEqual('extra test context', issue.render(None))
+            self.assertEqual('extra test context', issue.render(EmailAddress(email='foo@example.com')))
         finally:
             if old_settings == '!unset':
                 del settings.NOVA_CONTEXT_PROCESSORS
