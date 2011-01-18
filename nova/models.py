@@ -120,11 +120,21 @@ class PremailerException(Exception):
     Exception thrown when premailer command finishes with a return code other than 0
     """
 
-def send_multipart_mail(subject, txt_message, html_message, from_email, recipient_list,
+def send_multipart_mail(subject, txt_body, html_body, from_email, recipient_list,
                         fail_silently=False):
-    message = EmailMultiAlternatives(subject, body=txt_message,
+    """
+    Sends a multipart email with a plaintext part and an html part.
+
+    :param subject: subject line for email
+    :param txt_body: message body for plaintext part of email
+    :param html_body: message body for html part of email
+    :param from_email: email address from which to send message
+    :param recipient_list: list of email addresses to which to send email
+    :fail_silently: whether to raise an exception on delivery failure
+    """
+    message = EmailMultiAlternatives(subject, body=txt_body,
                                      from_email=from_email, to=recipient_list)
-    message.attach_alternative(html_message, "text/html")
+    message.attach_alternative(html_body, "text/html")
     return message.send(fail_silently)
 
 class NewsletterIssue(models.Model):
