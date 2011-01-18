@@ -278,27 +278,37 @@ class TestSignupViews(TestCase):
         """
         # Create subscription
         email = 'test_confirm@example.com'
-        response = self._do_subscribe(email=email, newsletters=(self.newsletter1.pk,
-                                                                self.newsletter2.pk,))
+        self._do_subscribe(email=email, newsletters=(self.newsletter1.pk,
+                                                     self.newsletter2.pk,))
+        other_email = 'other@example.com'
+        self._do_subscribe(email=other_email, newsletters=(self.newsletter1.pk,
+                                                           self.newsletter2.pk,))
 
-        # Confirm email address
-        email_address = EmailAddress.objects.get(email=email)
-        confirm_url = reverse('nova.views.confirm', args=(email_address.token,))
-        self.client.get(confirm_url)
+        # Confirm email addresses
+        for email_address in EmailAddress.objects.all():
+            confirm_url = reverse('nova.views.confirm', args=(email_address.token,))
+            self.client.get(confirm_url)
 
-        # Assert we have a confirmed email
-        self.assertEqual(EmailAddress.objects.filter(confirmed=True).count(), 1)
+        # Assert we have 2 confirmed email addresses
+        self.assertEqual(EmailAddress.objects.filter(confirmed=True).count(), 2)
 
-        # Assert this email has the correct number of subscriptions
-        self.assertEqual(Subscription.objects.filter(email_address=email_address, active=True).count(), 2)
+        # Assert emails have the correct number of subscriptions
+        for email_address in EmailAddress.objects.all():
+            self.assertEqual(Subscription.objects.filter(email_address=email_address, active=True).count(), 2)
 
         # Test unsubscribe view
+        email_address = EmailAddress.objects.get(email=email)
         unsubscribe_url = reverse('nova.views.unsubscribe', args=(email_address.token,))
         response = self.client.get(unsubscribe_url)
 
         # Test unsubscribe
         response = self.client.post(unsubscribe_url)
         self.assertEqual(Subscription.objects.filter(email_address=email_address, active=False).count(), 2)
+
+        # Make sure other address is still subscribed
+        other_email_address = EmailAddress.objects.get(email=other_email)
+        self.assertEqual(Subscription.objects.filter(email_address=other_email_address, active=True).count(), 2)
+
         
 
 class TestManagement(TestCase):
