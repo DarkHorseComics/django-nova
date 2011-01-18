@@ -168,6 +168,8 @@ class NewsletterIssue(models.Model):
         """
         if body_text is None:
             body_text = self.template
+        if not body_text:
+            return body_text #nothing to do
 
         args = ['premailer',
                 '--mode', 'txt' if plaintext else 'html',
