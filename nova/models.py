@@ -13,7 +13,8 @@ NOVA_CONTEXT_PROCESSORS:
 import re
 from datetime import datetime
 from subprocess import Popen, PIPE
-from django.contrib.sites.models import Site
+from urllib import urlencode
+from urlparse import urlparse
 
 from BeautifulSoup import BeautifulSoup
 
@@ -26,6 +27,7 @@ from django.core.mail import EmailMultiAlternatives
 from django.utils.translation import ugettext_lazy as _
 from django.template import Context, Template, TemplateDoesNotExist
 from django.template.loader import find_template_loader
+from django.contrib.sites.models import Site
 
 TOKEN_LENGTH = 12
 
@@ -163,18 +165,65 @@ def canonicalize_links(html, base_url=None):
 
     return unicode(soup)
 
+def track_links(html, query_string, domain=None):
+    """
+    Parse an html string and append query_string to all links
+    matching the specified domain.
+    """
+    if not domain:
+        domain = Site.objects.get_current().domain
+
+    soup = BeautifulSoup(html)
+
+    for node in soup.findAll('a'):
+        href = node['href']
+        url = urlparse(href)
+
+        if url.netloc.lstrip('www.') == domain.lstrip('www.'):
+            if not url.query:
+                href += '?'
+            else:
+                href += '&'
+            href += query_string
+            node['href'] = href 
+        
+    return soup
+
+def get_tracking_string(source, medium, term, campaign):
+    """
+    Returns a query string for tracking inbound links with Google Analytics.
+
+    :param source: Use to identify a search engine, newsletter name, or other source.
+    :param medium: Use to identify a medium such as email or cost-per-click.
+    :param term: Use to note keywords for this source.
+    :param campaign: Use to identify a sepcific product promotion or campaign.
+    """
+    args = {
+        'utm_source': source,
+        'utm_medium': medium,
+        'utm_term': term,
+        'utm_campaign': campaign,
+    }
+    return urlencode(args)
 
 class NewsletterIssue(models.Model):
     """
     An issue of a newsletter. This model wraps the actual email subject
     line and template that will be sent out to subscribers.
     """
+    newsletter = models.ForeignKey(Newsletter)
     subject = models.CharField(max_length=255, null=False, blank=False)
     template = models.TextField(null=False, blank=True,
         help_text=_("If template is left empty we'll use the default template from the parent newsletter."))
-    created_at = models.DateTimeField(auto_now_add=True)
+    
+    track = models.BooleanField(default=True,
+        help_text=_("Add link tracking to all links from this domain."))
+    tracking_term = models.CharField(max_length=20,
+        help_text=_("A short keyword to track by (e.g. 'January')."))
+    tracking_campaign = models.CharField(max_length=20,
+        help_text=_("A short keyword to identify this campaign (e.g. 'DHD')."))
 
-    newsletter = models.ForeignKey(Newsletter)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
         """
@@ -215,6 +264,14 @@ class NewsletterIssue(models.Model):
         rendered_template = template.render(context)
         rendered_template = canonicalize_links(rendered_template)
 
+        # Add link tracking
+        if self.track:
+            tracking_string = get_tracking_string(source=('newsletter-%s' % (self.pk)),
+                medium='email',
+                term=self.tracking_term,
+                campaign=self.tracking_campaign)
+            rendered_template = track_links(rendered_template, tracking_string)
+
         # Run premailer
         rendered_template = self.premail(body_text=rendered_template, plaintext=plaintext)
 
@@ -234,7 +291,7 @@ class NewsletterIssue(models.Model):
         # todo: either use fixed version of premailer, or re-implement in python
 
         p = Popen(args, stdin=PIPE, stdout=PIPE, stderr=PIPE)
-        premailed, err = p.communicate(input=body_text)
+        premailed, err = p.communicate(input=str(body_text))
 
         if p.returncode != 0:
             raise PremailerException(err)

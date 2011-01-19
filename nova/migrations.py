@@ -77,3 +77,13 @@ class AddDefaultTemplateField(SqlMigration):
 
     class Meta:
         model = Newsletter
+
+class AddLinkTrackingFields(SqlMigration):
+    sql = """
+    ALTER TABLE {table}
+    ADD COLUMN track integer DEFAULT 1,
+    ADD COLUMN tracking_term VARCHAR(20),
+    ADD COLUMN tracking_campaign VARCHAR(20)"""
+
+    class Meta:
+        model = NewsletterIssue

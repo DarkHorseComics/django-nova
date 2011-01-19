@@ -148,7 +148,6 @@ class TestNewsletterIssueModel(TestCase):
 
         issue = NewsletterIssue()
         issue.subject = 'Test'
-        issue.body = 'Test'
         issue.newsletter = self.newsletter1
         issue.save()
 
@@ -206,6 +205,46 @@ class TestNewsletterIssueModel(TestCase):
                 del settings.NOVA_CONTEXT_PROCESSORS
             else:
                 settings.NOVA_CONTEXT_PROCESSORS = old_settings
+
+    def test_link_tracking(self):
+        """
+        Verify link tracking works as expected.
+        """
+        template = """\
+        <html>
+            <head>
+                <style>
+                    a {
+                        font-weight: bold;
+                        color: pink;
+                    }
+                </style>
+            </head>
+            <body>
+                <a href="http://www.example.com/">Google</a>
+                <a href="http://www.darkhorse.com/">Dark Horse</a>
+                <a href="http://digital.darkhorse.com/">Digital Dark Horse</a>
+                <a href="http://www.tfaw.com/">TFAW</a>
+            </body>
+        </html>
+        """
+        
+        issue = NewsletterIssue()
+        issue.subject = 'Test'
+        issue.template = template
+        issue.newsletter = self.newsletter1
+        issue.tracking_term = 'month'
+        issue.tracking_campaign = 'DHD'
+        issue.save()
+
+        expected_result = """\
+        <a href="http://www.example.com/?utm_term=month&amp;utm_medium=email&amp;utm_source=newsletter-{pk}&amp;utm_campaign=DHD" style="font-weight: bold; color: pink;">Google</a>""".format(pk=issue.pk)
+        
+        # Sanity check
+        self.assertTrue(issue.track)
+
+        rendered_template = issue.render(email='blah@blah.com')
+        self.assertTrue(expected_result.strip() in rendered_template)
 
     def test_premail(self):
         """
