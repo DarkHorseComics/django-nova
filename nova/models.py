@@ -196,7 +196,7 @@ class NewsletterIssue(models.Model):
         # Render template
         template = Template(self.template)
         rendered_template = template.render(context)
-        rendered_template = self.canonicalize_links(rendered_template)
+        rendered_template = canonicalize_links(rendered_template)
 
         # Run premailer
         rendered_template = self.premail(body_text=rendered_template, plaintext=plaintext)
