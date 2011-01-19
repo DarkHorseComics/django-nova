@@ -10,10 +10,12 @@ NOVA_CONTEXT_PROCESSORS:
         newsletter_issue: NewsletterIssue instance that is sending the email
         email: EmailAddress instance that is receiving the email
 """
-import os
+import re
 from datetime import datetime
 from subprocess import Popen, PIPE
 from django.contrib.sites.models import Site
+
+from BeautifulSoup import BeautifulSoup
 
 from django.db import models
 from django.forms import ValidationError
@@ -145,6 +147,20 @@ def send_multipart_mail(subject, txt_body, html_body, from_email, recipient_list
     message.attach_alternative(html_body, "text/html")
     return message.send(fail_silently)
 
+def canonicalize_links(html, base_url=None):
+    """
+    Parse an html string, replacing any relative links with fully qualified links
+    """
+    if base_url is None:
+        base_url = "http://"+Site.objects.get_current().domain
+    soup = BeautifulSoup(html)
+    relative_links = soup.findAll(href=re.compile('^/'))
+    for link in relative_links:
+        link['href'] = base_url + link['href']
+
+    return unicode(soup)
+
+
 class NewsletterIssue(models.Model):
     """
     An issue of a newsletter. This model wraps the actual email subject
@@ -172,14 +188,16 @@ class NewsletterIssue(models.Model):
             context.update(extra_context)
 
         for context_processor in getattr(settings, 'NOVA_CONTEXT_PROCESSORS', []):
-            module, attr = context_processor.rsplit('.', 1)
-            module = __import__(module, fromlist=[attr])
-            processor = getattr(module, attr)
-            context.update(processor(newsletter_issue=self, email=email))
+            if context_processor:
+                module, attr = context_processor.rsplit('.', 1)
+                module = __import__(module, fromlist=[attr])
+                processor = getattr(module, attr)
+                context.update(processor(newsletter_issue=self, email=email))
 
         # Render template
         template = Template(self.template)
         rendered_template = template.render(context)
+        rendered_template = self.canonicalize_links(rendered_template)
 
         # Run premailer
         rendered_template = self.premail(body_text=rendered_template, plaintext=plaintext)
@@ -197,9 +215,9 @@ class NewsletterIssue(models.Model):
         if not body_text:
             return body_text #nothing to do
 
-        args = ['premailer',
-                '--mode', 'txt' if plaintext else 'html',
-                '--base-url', '{0}://{1}'.format(base_protocol, Site.objects.get_current().domain)]
+        args = ['premailer', '--mode', 'txt' if plaintext else 'html']
+        # --base-url currently broken in premailer
+        # todo: either use fixed version of premailer, or re-implement in python
 
         p = Popen(args, stdin=PIPE, stdout=PIPE, stderr=PIPE)
         premailed, err = p.communicate(input=body_text)
@@ -240,6 +258,9 @@ class NewsletterIssue(models.Model):
         String-ify this newsletter issue
         """
         return u'%s' % self.subject
+
+    def get_absolute_url(self):
+        return reverse('nova.views.preview', args=[self.id])
 
 
 class Subscription(models.Model):

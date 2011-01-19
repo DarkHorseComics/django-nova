@@ -4,6 +4,8 @@ Newsletter registration views
 from datetime import datetime, timedelta
 
 from django.conf import settings
+from django.contrib.auth.decorators import permission_required
+from django.http import HttpResponse
 from django.template import RequestContext, Context, loader 
 from django.shortcuts import render_to_response, get_object_or_404
 from django.core.urlresolvers import reverse
@@ -11,7 +13,7 @@ from django.core.mail import send_mail
 from django.views.generic.simple import redirect_to
 from django.contrib.sites.models import RequestSite
 
-from nova.models import EmailAddress, Subscription, Newsletter
+from nova.models import EmailAddress, Subscription, Newsletter, NewsletterIssue
 
 def _send_message(to_addr, subject_template, body_template, context_vars):
     """
@@ -151,3 +153,17 @@ def unsubscribe(request, token):
         context,
         RequestContext(request)
     )
+
+@permission_required('nova.change_newsletterinstance')
+def preview(request, newsletter_issue_id):
+    """
+    Render the specified newsletter issue with a random EmailAddress.
+
+    This view may deadlock if the django deployment doesn't support multiple simultaneous requets, because
+     issue.render needs to fetch css files, and if the css files live behind django that leads to multiple
+     simultaneous requests
+    """
+    issue = get_object_or_404(NewsletterIssue, id=newsletter_issue_id)
+    email = issue.newsletter.subscribers.order_by('?')[0]
+
+    return HttpResponse(issue.render(email))
