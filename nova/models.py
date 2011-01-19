@@ -188,11 +188,10 @@ class NewsletterIssue(models.Model):
             context.update(extra_context)
 
         for context_processor in getattr(settings, 'NOVA_CONTEXT_PROCESSORS', []):
-            if context_processor:
-                module, attr = context_processor.rsplit('.', 1)
-                module = __import__(module, fromlist=[attr])
-                processor = getattr(module, attr)
-                context.update(processor(newsletter_issue=self, email=email))
+            module, attr = context_processor.rsplit('.', 1)
+            module = __import__(module, fromlist=[attr])
+            processor = getattr(module, attr)
+            context.update(processor(newsletter_issue=self, email=email))
 
         # Render template
         template = Template(self.template)
