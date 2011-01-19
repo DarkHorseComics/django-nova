@@ -288,6 +288,8 @@ class NewsletterIssue(models.Model):
 
         args = ['premailer', '--mode', 'txt' if plaintext else 'html']
         # --base-url currently broken in premailer
+        # note: premailer will only return a value in txt mode if the input
+        #       contains valid html, head and body tags.
         # todo: either use fixed version of premailer, or re-implement in python
 
         p = Popen(args, stdin=PIPE, stdout=PIPE, stderr=PIPE)

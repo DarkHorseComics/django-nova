@@ -103,16 +103,20 @@ class TestNewsletterIssueModel(TestCase):
         approver4@example.com"""
         self.newsletter1.save()
 
+        self.template = " <html><head></head><body><h1>Test</h1></body></html>"
+
+        self.plaintext = "****\nTest\n****"
+
         # Create an issue for each newsletter
         self.newsletter_issue1 = NewsletterIssue()
         self.newsletter_issue1.subject = 'Test Newsletter Issue 1'
-        self.newsletter_issue1.body = 'Test'
+        self.newsletter_issue1.template = self.template
         self.newsletter_issue1.newsletter = self.newsletter1
         self.newsletter_issue1.save()
 
         self.newsletter_issue2 = NewsletterIssue()
         self.newsletter_issue2.subject = 'Test Newsletter Issue 2'
-        self.newsletter_issue2.body = 'Test'
+        self.newsletter_issue2.template = self.template
         self.newsletter_issue2.newsletter = self.newsletter2
         self.newsletter_issue2.save()
 
@@ -177,16 +181,20 @@ class TestNewsletterIssueModel(TestCase):
         Date: {% now "Y-m-d" %}
         Email: {{ email }}
         """
+        
+        issue = NewsletterIssue()
+        issue.subject = 'Test'
+        issue.template = template
+        issue.newsletter = self.newsletter1
+        issue.save()
+
         expected_template = """\
         Issue ID: {issue_id}
         Date: {date:%Y-%m-%d}
         Email: {email}
-        """.format(issue_id=self.newsletter_issue1.pk, date=datetime.now(), email=email)
+        """.format(issue_id=issue.pk, date=datetime.now(), email=email)
 
-        self.newsletter_issue1.template = template
-        self.newsletter_issue1.save()
-
-        rendered_template = self.newsletter_issue1.render(email=email)
+        rendered_template = issue.render(email=email)
         self.assertEqual(rendered_template, expected_template)
 
     def test_nova_context_processors(self):
@@ -297,7 +305,9 @@ class TestNewsletterIssueModel(TestCase):
         for message in mail.outbox:
             self.assertTrue(message.to[0] in approvers)
             self.assertEqual(message.subject, self.newsletter_issue1.subject)
-            self.assertTrue(self.newsletter_issue1.template in message.body)
+            self.assertEqual(message.body, self.plaintext)
+            self.assertEqual(message.alternatives[0][1], 'text/html')
+            self.assertEqual(message.alternatives[0][0], self.newsletter_issue1.template)
 
     def test_send(self):
         """
@@ -314,6 +324,10 @@ class TestNewsletterIssueModel(TestCase):
             self.assertNotEqual(self.unconfirmed_email.email, message.to[0])
             self.assertNotEqual(self.exclude_email.email, message.to[0])
             self.assertEqual(message.subject, self.newsletter_issue1.subject)
+            self.assertEqual(message.body, self.plaintext)
+            self.assertEqual(message.alternatives[0][1], 'text/html')
+            self.assertEqual(message.alternatives[0][0], self.newsletter_issue1.template)
+
 
 class TestSignupViews(TestCase):
     """
