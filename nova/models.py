@@ -218,9 +218,9 @@ class NewsletterIssue(models.Model):
     
     track = models.BooleanField(default=True,
         help_text=_("Add link tracking to all links from this domain."))
-    tracking_term = models.CharField(max_length=20,
+    tracking_term = models.CharField(max_length=20, blank=True,
         help_text=_("A short keyword to track by (e.g. 'January')."))
-    tracking_campaign = models.CharField(max_length=20,
+    tracking_campaign = models.CharField(max_length=20, blank=True,
         help_text=_("A short keyword to identify this campaign (e.g. 'DHD')."))
 
     created_at = models.DateTimeField(auto_now_add=True)

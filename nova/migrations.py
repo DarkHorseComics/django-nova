@@ -87,3 +87,14 @@ class AddLinkTrackingFields(SqlMigration):
 
     class Meta:
         model = NewsletterIssue
+
+class FixTrackField(SqlMigration):
+    sql = """
+    ALTER TABLE {table}
+    DROP COLUMN track,
+    ADD COLUMN track boolean DEFAULT True NOT NULL
+    """
+
+    class Meta:
+        model = NewsletterIssue
+        requires = [AddLinkTrackingFields]
