@@ -23,7 +23,7 @@ from django.forms import ValidationError
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.urlresolvers import reverse
-from django.core.mail import EmailMultiAlternatives
+from django.core.mail import send_mail, EmailMultiAlternatives
 from django.utils.translation import ugettext_lazy as _
 from django.template import Context, Template, TemplateDoesNotExist
 from django.template.loader import find_template_loader
@@ -300,31 +300,36 @@ class NewsletterIssue(models.Model):
         else:
             return premailed
 
-    def send(self):
+    def send(self, render=True):
         """
         Sends this issue to subscribers of this newsletter. 
         """
         email_addresses = self.newsletter.subscribers
         for send_to in email_addresses:
-            send_multipart_mail(self.subject,
-                txt_body=self.render(send_to, plaintext=True),
-                html_body=self.render(send_to, plaintext=False),
-                from_email=settings.DEFAULT_MAIL_FROM, recipient_list=(send_to.email,)
-            )
+            if render:
+                send_multipart_mail(self.subject,
+                    txt_body=self.render(send_to, plaintext=True),
+                    html_body=self.render(send_to, plaintext=False),
+                    from_email=settings.DEFAULT_MAIL_FROM, recipient_list=(send_to.email,)
+                )
+            else:
+                send_mail(self.subject, self.template, settings.DEFAULT_MAIL_FROM, (send_to.email,))
 
-
-    def send_test(self):
+    def send_test(self, render=True):
         """
         Sends this issue to an email address specified by an admin user
         """
         approvers = self.newsletter.approvers.split()
         for approver_email in approvers:
             send_to, created = EmailAddress.objects.get_or_create(email=approver_email)
-            send_multipart_mail(self.subject,
-                txt_body=self.render(send_to, plaintext=True),
-                html_body=self.render(send_to, plaintext=False),
-                from_email=settings.DEFAULT_MAIL_FROM, recipient_list=(send_to.email,)
-            )
+            if render:
+                send_multipart_mail(self.subject,
+                    txt_body=self.render(send_to, plaintext=True),
+                    html_body=self.render(send_to, plaintext=False),
+                    from_email=settings.DEFAULT_MAIL_FROM, recipient_list=(send_to.email,)
+                )
+            else:
+                send_mail(self.subject, self.template, settings.DEFAULT_MAIL_FROM, (send_to.email,))
 
     def __unicode__(self):
         """
