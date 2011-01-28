@@ -128,23 +128,36 @@ def confirm(request, token):
         RequestContext(request)
     )
 
-def unsubscribe(request, token):
+def unsubscribe(request, token=None):
     """
     Unsubscribe view
     :todo: Unsubscribe only from specified subscriptions
     """
-    email_address = get_object_or_404(EmailAddress, token=token)
     template = 'nova/unsubscribe.html'
+    email_address = None
+    error_msg = None
 
     if request.method == 'POST':
-        subscriptions = Subscription.objects.filter(email_address=email_address)
-        for subscription in subscriptions:
-            subscription.active = False
-            subscription.save()
-        template = 'nova/unsubscribe_acknowledge.html'
+        email = request.POST.get('email', None)
+
+        if email and not token:
+            email_address = EmailAddress.objects.filter(email=email)[:1]
+        else:
+            email_address = get_object_or_404(EmailAddress, token=token)
+
+        if email_address:
+            subscriptions = Subscription.objects.filter(email_address=email_address)
+            for subscription in subscriptions:
+                subscription.active = False
+                subscription.save()
+            template = 'nova/unsubscribe_acknowledge.html'
+        else:
+            error_msg = "Looks like you entered an invalid email address. Please try again."
+
 
     context = {
-        'email': email_address.email,
+        'error_msg': error_msg,
+        'email_address': email_address,
         'token': token,
     }
         

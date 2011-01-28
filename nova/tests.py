@@ -423,6 +423,42 @@ class TestSignupViews(TestCase):
         other_email_address = EmailAddress.objects.get(email=other_email)
         self.assertEqual(Subscription.objects.filter(email_address=other_email_address, active=True).count(), 2)
 
+    def test_unsubscribe_email(self):
+        """
+        Test that a user can unsubscribe using only their email address.
+        """
+        # Create subscription
+        email = 'bob@example.com'
+        self._do_subscribe(email=email, newsletters=(self.newsletter1.pk,
+                                                     self.newsletter2.pk,))
+        other_email = 'alice@example.com'
+        self._do_subscribe(email=other_email, newsletters=(self.newsletter1.pk,
+                                                           self.newsletter2.pk,))
+
+        # Confirm email addresses
+        for email_address in EmailAddress.objects.all():
+            confirm_url = reverse('nova.views.confirm', args=(email_address.token,))
+            self.client.get(confirm_url)
+
+        # Assert we have 2 confirmed email addresses
+        self.assertEqual(EmailAddress.objects.filter(confirmed=True).count(), 2)
+
+        # Assert emails have the correct number of subscriptions
+        for email_address in EmailAddress.objects.all():
+            self.assertEqual(Subscription.objects.filter(email_address=email_address, active=True).count(), 2)
+
+        # Test unsubscribe view
+        email_address = EmailAddress.objects.get(email=email)
+        unsubscribe_url = reverse('nova.views.unsubscribe')
+        response = self.client.get(unsubscribe_url)
+
+        # Test unsubscribe
+        response = self.client.post(unsubscribe_url, {'email': email_address.email})
+        self.assertEqual(Subscription.objects.filter(email_address=email_address, active=False).count(), 2)
+
+        # Make sure other address is still subscribed
+        other_email_address = EmailAddress.objects.get(email=other_email)
+        self.assertEqual(Subscription.objects.filter(email_address=other_email_address, active=True).count(), 2)
         
 
 class TestManagement(TestCase):

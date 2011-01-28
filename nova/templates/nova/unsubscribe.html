@@ -5,10 +5,22 @@
     </head>
     <body>
         <h1>Unsubscribe</h1>
-        <p>Your email address {{ email }} is currently subscribed to periodic updates. If you'd like to unsubscribe from future updates, please click the "unsubscribe" button below.</p>
-        <form method="POST" action="{% url nova.views.unsubscribe token=token %}">
-            {% csrf_token %}
-            <input type="submit" class="button" value="Unsubscribe" />
-        </form>
+        {% if token %}
+            <p>If you'd like to unsubscribe from future updates, please click the "unsubscribe" button below.</p>
+            <form method="POST" action="{% url nova.views.unsubscribe token=token %}">
+                {% csrf_token %}
+                <input type="submit" class="button" value="Unsubscribe" />
+            </form>
+        {% else %}
+            <p>
+                If you'd like to unsubscribe from future updates, please enter the email address you subscribed with below
+                and click the "unsubscribe" button.
+            </p>
+            <form method="POST" action="{% url nova.views.unsubscribe token=token %}">
+                {% csrf_token %}
+                <input type="email" name="email" value="" placeholder="Your email" />
+                <input type="submit" class="button" value="Unsubscribe" />
+            </form>
+        {% endif %}
     </body>
 </html>
