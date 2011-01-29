@@ -23,7 +23,7 @@ from django.forms import ValidationError
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.urlresolvers import reverse
-from django.core.mail import send_mail, EmailMultiAlternatives
+from django.core.mail import send_mail, EmailMessage, EmailMultiAlternatives
 from django.utils.translation import ugettext_lazy as _
 from django.template import Context, Template, TemplateDoesNotExist
 from django.template.loader import find_template_loader
@@ -313,7 +313,9 @@ class NewsletterIssue(models.Model):
                     from_email=settings.DEFAULT_MAIL_FROM, recipient_list=(send_to.email,)
                 )
             else:
-                send_mail(self.subject, self.template, settings.DEFAULT_MAIL_FROM, (send_to.email,))
+                msg = EmailMessage(self.subject, self.template, settings.DEFAULT_MAIL_FROM, (send_to.email,))
+                msg.content_subtype = "html"
+                msg.send()
 
     def send_test(self, render=True):
         """
@@ -329,7 +331,9 @@ class NewsletterIssue(models.Model):
                     from_email=settings.DEFAULT_MAIL_FROM, recipient_list=(send_to.email,)
                 )
             else:
-                send_mail(self.subject, self.template, settings.DEFAULT_MAIL_FROM, (send_to.email,))
+                msg = EmailMessage(self.subject, self.template, settings.DEFAULT_MAIL_FROM, (send_to.email,))
+                msg.content_subtype = "html"
+                msg.send()
 
     def __unicode__(self):
         """
