@@ -300,11 +300,13 @@ class NewsletterIssue(models.Model):
         else:
             return premailed
 
-    def send(self, render=True):
+    def send(self, render=True, email_addresses=None):
         """
         Sends this issue to subscribers of this newsletter. 
         """
-        email_addresses = self.newsletter.subscribers
+        if not email_addresses:
+            email_addresses = self.newsletter.subscribers
+
         for send_to in email_addresses:
             if render:
                 send_multipart_mail(self.subject,
@@ -321,19 +323,13 @@ class NewsletterIssue(models.Model):
         """
         Sends this issue to an email address specified by an admin user
         """
+        email_addresses = []
         approvers = self.newsletter.approvers.split()
         for approver_email in approvers:
             send_to, created = EmailAddress.objects.get_or_create(email=approver_email)
-            if render:
-                send_multipart_mail(self.subject,
-                    txt_body=self.render(send_to, plaintext=True),
-                    html_body=self.render(send_to, plaintext=False),
-                    from_email=settings.DEFAULT_MAIL_FROM, recipient_list=(send_to.email,)
-                )
-            else:
-                msg = EmailMessage(self.subject, self.template, settings.DEFAULT_MAIL_FROM, (send_to.email,))
-                msg.content_subtype = "html"
-                msg.send()
+            email_addresses.append(send_to)
+
+        self.send(render, email_addresses)
 
     def __unicode__(self):
         """

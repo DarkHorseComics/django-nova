@@ -328,6 +328,36 @@ class TestNewsletterIssueModel(TestCase):
             self.assertEqual(message.alternatives[0][1], 'text/html')
             self.assertEqual(message.alternatives[0][0], self.newsletter_issue1.template)
 
+    def test_send_custom_list(self):
+        """
+        Ensure that a newsletter issue is successfully sent to
+        a custom list of recipients.
+        """
+        emails = ['test@example.com', 'test2@example.net']
+        email_addresses = []
+        for email in emails:
+            e = EmailAddress.objects.create(email=email)
+            email_addresses.append(e)
+            
+        # Sanity Check
+        self.assertEqual(len(email_addresses), 2)
+        self.assertEqual(self.newsletter1.subscribers.count(), 3)
+
+        self.newsletter_issue1.send(email_addresses=email_addresses)
+
+        self.assertEqual(len(mail.outbox), 2)
+
+        subscribers = [email.email for email in self.newsletter1.subscribers]
+
+        for message in mail.outbox:
+            self.assertTrue(message.to[0] not in subscribers)
+            self.assertNotEqual(self.unconfirmed_email.email, message.to[0])
+            self.assertNotEqual(self.exclude_email.email, message.to[0])
+            self.assertEqual(message.subject, self.newsletter_issue1.subject)
+            self.assertEqual(message.body, self.plaintext)
+            self.assertEqual(message.alternatives[0][1], 'text/html')
+            self.assertEqual(message.alternatives[0][0], self.newsletter_issue1.template)
+
 
 class TestSignupViews(TestCase):
     """
