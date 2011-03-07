@@ -22,11 +22,13 @@ class EmailAddressAdmin(admin.ModelAdmin):
     list_display = ('email', 'token', 'client_addr', 'confirmed', 'confirmed_at', 'created_at',)
     readonly_fields = ('created_at',)
     list_filter = ('confirmed',)
+    search_fields = ['email', 'client_addr',]
 
 class SubscriptionAdmin(admin.ModelAdmin):
     list_display = ('email_address', 'newsletter', 'created_at',)
     readonly_fields = ('created_at',)
     list_filter = ('newsletter',)
+    search_fields = ['email_address__email',]
 
 class NewsletterAdmin(admin.ModelAdmin):
     list_display = ('title', 'active', 'created_at', 'approvers',)    

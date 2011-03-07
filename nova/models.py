@@ -326,7 +326,11 @@ class NewsletterIssue(models.Model):
         email_addresses = []
         approvers = self.newsletter.approvers.split()
         for approver_email in approvers:
-            send_to, created = EmailAddress.objects.get_or_create(email=approver_email)
+            try:
+                send_to = EmailAddress.objects.get(email=approver_email.strip(','))
+            except EmailAddress.DoesNotExist:
+                send_to = EmailAddress.objects.create_with_random_token(email=approver_email.strip(','))
+
             email_addresses.append(send_to)
 
         self.send(render, email_addresses)
