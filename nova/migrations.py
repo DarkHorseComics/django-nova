@@ -1,6 +1,7 @@
 from finch.base import Migration, SqlMigration
 
 from nova.models import *
+from nova.views import _email_is_valid
 
 class AddClientAddr(SqlMigration):
     sql = "ALTER TABLE {table} ADD COLUMN client_addr VARCHAR(16)"
@@ -98,3 +99,19 @@ class FixTrackField(SqlMigration):
     class Meta:
         model = NewsletterIssue
         requires = [AddLinkTrackingFields]
+
+class RemoveInvalidEmailAddresses(Migration):
+    """
+    Delete any invalid and unconfirmed email addresses
+    that snuck into the database.
+    """
+    def apply(self, *args, **kwargs):
+        for address in EmailAddress.objects.all():
+            try:
+                if not _email_is_valid(address.email):
+                    if not address.confirmed:
+                        address.delete()
+                    else:
+                        print "Invalid, but confirmed: %s [pk=%d]" % (address, address.pk)
+            except:
+                pass

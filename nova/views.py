@@ -10,6 +10,7 @@ from django.template import RequestContext, Context, loader
 from django.shortcuts import render_to_response, get_object_or_404
 from django.core.urlresolvers import reverse
 from django.core.mail import send_mail
+from django.core.validators import email_re
 from django.views.generic.simple import redirect_to
 from django.contrib.sites.models import RequestSite
 
@@ -26,6 +27,12 @@ def _send_message(to_addr, subject_template, body_template, context_vars):
     body = loader.get_template(body_template).render(context)
     send_mail(subject, body, settings.DEFAULT_MAIL_FROM, (to_addr,))
 
+def _sanitize_email(email):
+    return email.strip()
+
+def _email_is_valid(email):
+    return email_re.match(email)
+
 def subscribe(request):
     """
     Basic newsletter signup view
@@ -36,55 +43,68 @@ def subscribe(request):
     send_email = False 
 
     if request.method == 'POST':
-        email = request.POST['email']
+        email = _sanitize_email(request.POST['email'])
         newsletter_ids = request.POST.getlist('newsletters')
 
-        # Verify at least one newsletter was submitted
-        if len(newsletter_ids) > 0:
-            # Get newsletter objects
-            newsletters = Newsletter.objects.filter(pk__in=newsletter_ids)
-
-            # Check to see if we've already confirmed this email address
-            try:
-                email_address = EmailAddress.objects.get(email=email)
-
-                if not email_address.confirmed:
-                    if (datetime.now() - email_address.created_at) < timedelta(minutes=15):
-                        context['error'] = """\
-                            You've previously submitted a subscription request. \
-                            Please check %s for your confirmation email \
-                            or try again in a few minutes.""" % email_address.email
-                        template = error_template 
-                    else:
-                        email_address.delete()
-                        ip_addr = request.META.get('REMOTE_ADDR', None)
-                        email_address = EmailAddress.objects.create_with_random_token(email, client_addr=ip_addr)
-                        send_email = True
-                
-            except EmailAddress.DoesNotExist:
-                email_address = EmailAddress.objects.create_with_random_token(email)
-                send_email = True
-
-            # Subscribe this email to the selected newsletters
-            for newsletter in newsletters: 
-                Subscription.objects.get_or_create(email_address=email_address,
-                    newsletter=newsletter)
-
-            if send_email:
-                request.session['email_address'] = email_address
-                _send_message(
-                    email_address.email, 
-                    'nova/email/subscribe_subject.txt',
-                    'nova/email/subscribe_body.txt',
-                    {
-                        'email_address': email_address, 
-                        'site': RequestSite(request)
-                    }
-                )
-                return redirect_to(request, reverse(acknowledge))
-        else:
-            context['error'] = 'You must select at least one newsletter.'
+        # Validate email
+        if not _email_is_valid(email):
+            # Invalid email
+            context['error'] = """\
+            The email address you submitted was not valid. Please
+            try again with a different address."""
             template = error_template
+        else:
+            # Verify at least one newsletter was submitted
+            if len(newsletter_ids) > 0:
+                # Get newsletter objects
+                newsletters = Newsletter.objects.filter(pk__in=newsletter_ids)
+
+                # Check to see if we've already confirmed this email address
+                try:
+                    email_address = EmailAddress.objects.get(email=email)
+
+                    if email_address.confirmed:
+                        context['error'] = """\
+                        We've already confirmed your subscription! Sit back and let
+                        the updates roll in."""
+                        template = error_template
+                    else:
+                        if (datetime.now() - email_address.created_at) < timedelta(minutes=15):
+                            context['error'] = """\
+                                You've previously submitted a subscription request. \
+                                Please check %s for your confirmation email \
+                                or try again in a few minutes.""" % email_address.email
+                            template = error_template 
+                        else:
+                            email_address.delete()
+                            ip_addr = request.META.get('REMOTE_ADDR', None)
+                            email_address = EmailAddress.objects.create_with_random_token(email, client_addr=ip_addr)
+                            send_email = True
+                    
+                except EmailAddress.DoesNotExist:
+                    email_address = EmailAddress.objects.create_with_random_token(email)
+                    send_email = True
+
+                # Subscribe this email to the selected newsletters
+                for newsletter in newsletters: 
+                    Subscription.objects.get_or_create(email_address=email_address,
+                        newsletter=newsletter)
+
+                if send_email:
+                    request.session['email_address'] = email_address
+                    _send_message(
+                        email_address.email, 
+                        'nova/email/subscribe_subject.txt',
+                        'nova/email/subscribe_body.txt',
+                        {
+                            'email_address': email_address, 
+                            'site': RequestSite(request)
+                        }
+                    )
+                    return redirect_to(request, reverse(acknowledge))
+            else:
+                context['error'] = 'You must select at least one newsletter.'
+                template = error_template
 
     else:
         context['newsletters'] = Newsletter.objects.filter(active=True)
