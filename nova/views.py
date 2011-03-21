@@ -10,11 +10,10 @@ from django.template import RequestContext, Context, loader
 from django.shortcuts import render_to_response, get_object_or_404
 from django.core.urlresolvers import reverse
 from django.core.mail import send_mail
-from django.core.validators import email_re
 from django.views.generic.simple import redirect_to
 from django.contrib.sites.models import RequestSite
 
-from nova.models import EmailAddress, Subscription, Newsletter, NewsletterIssue
+from nova.models import EmailAddress, Subscription, Newsletter, NewsletterIssue, _sanitize_email, _email_is_valid
 
 def _send_message(to_addr, subject_template, body_template, context_vars):
     """
@@ -26,12 +25,6 @@ def _send_message(to_addr, subject_template, body_template, context_vars):
     subject = loader.get_template(subject_template).render(context).strip()
     body = loader.get_template(body_template).render(context)
     send_mail(subject, body, settings.DEFAULT_MAIL_FROM, (to_addr,))
-
-def _sanitize_email(email):
-    return email.strip()
-
-def _email_is_valid(email):
-    return email_re.match(email)
 
 def subscribe(request):
     """
@@ -87,8 +80,7 @@ def subscribe(request):
 
                 # Subscribe this email to the selected newsletters
                 for newsletter in newsletters: 
-                    Subscription.objects.get_or_create(email_address=email_address,
-                        newsletter=newsletter)
+                    email_address.subscribe(newsletter)
 
                 if send_email:
                     request.session['email_address'] = email_address
@@ -151,29 +143,35 @@ def confirm(request, token):
 def unsubscribe(request, token=None):
     """
     Unsubscribe view
-    :todo: Unsubscribe only from specified subscriptions
+    :todo: Unsubscribe only from indicated newsletters
     """
     template = 'nova/unsubscribe.html'
     email_address = None
     error_msg = None
 
+    if token:
+        # Do we have a valid token?
+        email_address = get_object_or_404(EmailAddress, token=token)
+
     if request.method == 'POST':
-        email = request.POST.get('email', None)
+        if not token:
+            try:
+                email = _sanitize_email(request.POST.get('email', None))
+                email_address = EmailAddress.objects.get(email=email)
+            except EmailAddress.DoesNotExist:
+                pass
+            except EmailAddress.MultipleObjectsReturned:
+                pass
 
-        if email and not token:
-            email_address = EmailAddress.objects.filter(email=email)[:1]
-        else:
-            email_address = get_object_or_404(EmailAddress, token=token)
+            if not email_address:
+                error_msg = """\
+                Looks like you entered an invalid email address.
+                Please try again."""
 
-        if email_address:
-            subscriptions = Subscription.objects.filter(email_address=email_address)
-            for subscription in subscriptions:
-                subscription.active = False
-                subscription.save()
-            template = 'nova/unsubscribe_acknowledge.html'
-        else:
-            error_msg = "Looks like you entered an invalid email address. Please try again."
-
+    # Once we have an email_address, unsubscribe them
+    if email_address:
+        email_address.unsubscribe()
+        template = 'nova/unsubscribe_acknowledge.html'
 
     context = {
         'error_msg': error_msg,

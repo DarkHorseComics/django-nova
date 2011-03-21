@@ -72,6 +72,94 @@ class TestEmailModel(TestCase):
         self.assertTrue(email.confirmed_at is not None)
         self.assertTrue(email.confirmed_at > ts)
 
+    def test_subscribe(self):
+        """
+        Verify that an email address can be subscribed to
+        a newsletter.
+        """
+        email = _make_email('test_subscribe@example.com')
+        newsletter = _make_newsletter("Test Newsletter")
+        newsletter2 = _make_newsletter("Test Newsletter 2")
+
+        # Sanity check
+        self.assertEqual(Subscription.objects.filter(email_address=email).count(), 0)
+
+        # Subscribe this email to the newsletter
+        subscription, created = email.subscribe(newsletter)
+
+        # Verify a subscription was created
+        self.assertTrue(created)
+
+        # Verify the subscription was created for the correct newsletter
+        self.assertEqual(newsletter, subscription.newsletter)
+
+        # Verify a new subscription exists for this user
+        self.assertEqual(Subscription.objects.filter(email_address=email).count(), 1)
+
+
+    def test_unsubscribe(self):
+        """
+        Verify that a user can be successfully unsubscribed from
+        a newsletter.
+        """
+        email = _make_email('test_unsub1@example.com')
+        newsletter = _make_newsletter("Test Newsletter")
+        newsletter2 = _make_newsletter("Test Newsletter 2")
+
+        # Subscribe email to newsletter
+        subscription, created = email.subscribe(newsletter)
+
+        # Verify subscription
+        self.assertTrue(created)
+        self.assertEqual(newsletter, subscription.newsletter)
+        self.assertEqual(Subscription.objects.filter(email_address=email).count(), 1)
+
+        # Subscribe email to another newsletter
+        subscription, created = email.subscribe(newsletter2)
+
+        # Verify second subscription
+        self.assertTrue(created)
+        self.assertEqual(newsletter2, subscription.newsletter)
+        self.assertEqual(Subscription.objects.filter(email_address=email).count(), 2)
+
+        # Unsubscribe email
+        email.unsubscribe()
+
+        # Verify all subscriptions have been removed
+        self.assertEqual(Subscription.objects.filter(email_address=email).count(), 0)
+
+    def test_unsubscribe_newsletter(self):
+        """
+        Verify that a user can unsubscribe from a specific newsletter
+        without nuking all of their subscriptions.
+        """
+        email = _make_email('test_unsub2@example.com')
+        newsletter = _make_newsletter("Test Newsletter")
+        newsletter2 = _make_newsletter("Test Newsletter 2")
+
+        # Subscribe email to newsletter
+        subscription, created = email.subscribe(newsletter)
+
+        # Verify subscription
+        self.assertTrue(created)
+        self.assertEqual(newsletter, subscription.newsletter)
+        self.assertEqual(Subscription.objects.filter(email_address=email).count(), 1)
+
+        # Subscribe email to another newsletter
+        subscription, created = email.subscribe(newsletter2)
+
+        # Verify second subscription
+        self.assertTrue(created)
+        self.assertEqual(newsletter2, subscription.newsletter)
+        self.assertEqual(Subscription.objects.filter(email_address=email).count(), 2)
+
+        # Unsubscribe email from first newsletter
+        email.unsubscribe(newsletter)
+
+        # Verify only the first subscription was removed
+        subscriptions = Subscription.objects.filter(email_address=email)
+        self.assertEqual(subscriptions.count(), 1)
+        self.assertEqual(subscriptions[0].newsletter, newsletter2)
 
 def test_context_processor(newsletter_issue, email):
     """
@@ -358,6 +446,26 @@ class TestNewsletterIssueModel(TestCase):
             self.assertEqual(message.alternatives[0][1], 'text/html')
             self.assertEqual(message.alternatives[0][0], self.newsletter_issue1.template)
 
+    def test_send_unsubscribe(self):
+        """
+        Verify that a subscriber who once received issues, can
+        successfully opt-out by unsubscribing.
+        """
+        newsletter_issue = self.newsletter_issue1
+        email_address = newsletter_issue.newsletter.subscribers[0]
+
+        # Unsubscribe email
+        email_address.unsubscribe()
+
+        # Verify unsubscribe
+        self.assertTrue(email_address not in newsletter_issue.newsletter.subscribers)
+
+        # Verify unsubscribed email not in sent issues
+        newsletter_issue.send()
+
+        for message in mail.outbox:
+            self.assertNotEqual(email_address.email, message.to[0])
+
 
 class TestSignupViews(TestCase):
     """
@@ -417,8 +525,7 @@ class TestSignupViews(TestCase):
 
     def test_unsubscribe(self):
         """
-        Test that a subscription is marked unconfirmed for each post to the
-        'unsubscribe' view.
+        Test that a user can unsubscribe using a token.
         """
         # Create subscription
         email = 'test_confirm@example.com'
@@ -440,14 +547,14 @@ class TestSignupViews(TestCase):
         for email_address in EmailAddress.objects.all():
             self.assertEqual(Subscription.objects.filter(email_address=email_address, active=True).count(), 2)
 
-        # Test unsubscribe view
+        # Test unsubscribing with a token
         email_address = EmailAddress.objects.get(email=email)
         unsubscribe_url = reverse('nova.views.unsubscribe', args=(email_address.token,))
         response = self.client.get(unsubscribe_url)
 
-        # Test unsubscribe
+        # Ensure this user was successfully unsubscribed
         response = self.client.post(unsubscribe_url)
-        self.assertEqual(Subscription.objects.filter(email_address=email_address, active=False).count(), 2)
+        self.assertEqual(Subscription.objects.filter(email_address=email_address).count(), 0)
 
         # Make sure other address is still subscribed
         other_email_address = EmailAddress.objects.get(email=other_email)
@@ -484,7 +591,7 @@ class TestSignupViews(TestCase):
 
         # Test unsubscribe
         response = self.client.post(unsubscribe_url, {'email': email_address.email})
-        self.assertEqual(Subscription.objects.filter(email_address=email_address, active=False).count(), 2)
+        self.assertEqual(Subscription.objects.filter(email_address=email_address).count(), 0)
 
         # Make sure other address is still subscribed
         other_email_address = EmailAddress.objects.get(email=other_email)

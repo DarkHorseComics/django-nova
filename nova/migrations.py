@@ -1,7 +1,6 @@
 from finch.base import Migration, SqlMigration
 
 from nova.models import *
-from nova.views import _email_is_valid
 
 class AddClientAddr(SqlMigration):
     sql = "ALTER TABLE {table} ADD COLUMN client_addr VARCHAR(16)"
@@ -115,3 +114,12 @@ class RemoveInvalidEmailAddresses(Migration):
                         print "Invalid, but confirmed: %s [pk=%d]" % (address, address.pk)
             except:
                 pass
+
+class RemoveInactiveSubscriptions(Migration):
+    """
+    Delete any newsletter subscriptions that are
+    not active.
+    """
+    def apply(self, *args, **kwargs):
+        for subscription in Subscription.objects.filter(active=False):
+            subscription.delete()

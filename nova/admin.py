@@ -25,9 +25,9 @@ class EmailAddressAdmin(admin.ModelAdmin):
     search_fields = ['email', 'client_addr',]
 
 class SubscriptionAdmin(admin.ModelAdmin):
-    list_display = ('email_address', 'newsletter', 'created_at',)
+    list_display = ('email_address', 'newsletter', 'created_at', 'active',)
     readonly_fields = ('created_at',)
-    list_filter = ('newsletter',)
+    list_filter = ('newsletter', 'active',)
     search_fields = ['email_address__email',]
 
 class NewsletterAdmin(admin.ModelAdmin):

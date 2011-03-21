@@ -24,12 +24,19 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.urlresolvers import reverse
 from django.core.mail import send_mail, EmailMessage, EmailMultiAlternatives
+from django.core.validators import email_re
 from django.utils.translation import ugettext_lazy as _
 from django.template import Context, Template, TemplateDoesNotExist
 from django.template.loader import find_template_loader
 from django.contrib.sites.models import Site
 
 TOKEN_LENGTH = 12
+
+def _sanitize_email(email):
+    return email.strip().lower()
+
+def _email_is_valid(email):
+    return email_re.match(email)
 
 class EmailAddressManager(models.Manager):
     def create_with_random_token(self, email, **kwargs):
@@ -75,6 +82,8 @@ class EmailAddress(models.Model):
         """
         Set confirmed_at when this instance is confirmed.
         """
+        self.email = _sanitize_email(self.email)
+
         if self.confirmed and self.confirmed_at is None:
             self.confirmed_at = datetime.now()
         super(EmailAddress, self).save(*args, **kwargs)
@@ -86,6 +95,24 @@ class EmailAddress(models.Model):
         suitable for use in follow-up emails.
         """
         return reverse('nova.views.confirm', args=(self.token,))
+
+    def subscribe(self, newsletter):
+        """
+        Subscribe this email address to a newsletter.
+        :return: (Subscription, created)
+        """
+        return Subscription.objects.get_or_create(email_address=self,
+                newsletter=newsletter)
+
+    def unsubscribe(self, newsletter=None):
+        """
+        Unsubscribe this email address from a specific newsletter.
+        If newsletter is None, unsubscribe from all.
+        """
+        if not newsletter:
+            self.subscriptions.all().delete()
+        else:
+            self.subscriptions.filter(newsletter=newsletter).delete()
 
     def __unicode__(self):
         """
