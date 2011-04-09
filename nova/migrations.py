@@ -130,6 +130,6 @@ class AddDjangoUserAccounts(Migration):
     Save all confirmed EmailAddresses, so we get new user accounts
     """
     def apply(self, *args, **kwargs):
-        for address in EmailAddres.objects.filter(confirmed=True):
+        for address in EmailAddress.objects.filter(confirmed=True):
             #save should set the user attribute
             address.save()
