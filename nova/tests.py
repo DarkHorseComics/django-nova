@@ -72,6 +72,16 @@ class TestEmailModel(TestCase):
         self.assertTrue(email.confirmed_at is not None)
         self.assertTrue(email.confirmed_at > ts)
 
+    def test_auto_signup_user(self):
+        """
+        Check Users are auto-assigned
+        """
+        email = _make_email('test@example.com')
+        email.confirmed = True
+        email.save()
+        email = EmailAddress.objects.get(pk=email.pk)
+        self.assertTrue(email.user is not None)
+
     def test_subscribe(self):
         """
         Verify that an email address can be subscribed to
@@ -95,6 +105,7 @@ class TestEmailModel(TestCase):
 
         # Verify a new subscription exists for this user
         self.assertEqual(Subscription.objects.filter(email_address=email).count(), 1)
+        
 
 
     def test_unsubscribe(self):

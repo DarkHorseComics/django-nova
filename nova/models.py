@@ -86,6 +86,18 @@ class EmailAddress(models.Model):
 
         if self.confirmed and self.confirmed_at is None:
             self.confirmed_at = datetime.now()
+            try:
+                #set up a user account if it exists
+                self.user = User.objects.get(email=email)
+            except User.DoesNotExist:
+                #create one if it doesn't
+                #TODO: provide notification to these users, letting them know
+                #that they need to reset their password
+                username = _creat_unique_username_from_email(email)
+                self.user = User.objects.create_user(username, email)
+                self.user.set_unusable_password()
+                self.user.save()
+            
         super(EmailAddress, self).save(*args, **kwargs)
 
     @property
@@ -113,7 +125,32 @@ class EmailAddress(models.Model):
             self.subscriptions.all().delete()
         else:
             self.subscriptions.filter(newsletter=newsletter).delete()
-
+            
+    def _create_unique_username_from_email(self, email):
+        """
+        Ensure there are no collisions on user name and
+        make certain the username is less than thirty characters long
+        """
+        unique = False
+        #truncate email to thirty characters
+        parts = email.split('@')
+        username = parts[0][:30]
+        
+        i = 0
+        while not unique:
+            #generate a number to append to the end of the username
+            i_string = "%s" % i
+            try:
+                #ensure uniqueness
+                user = User.objects.get(username=username)
+                
+                end = 29 - len(i_string)
+                username = "%s%s" % (username[:end], i)
+                i += 1
+            except User.DoesNotExist:
+                unique = True
+        return username
+    
     def __unicode__(self):
         """
         String-ify this email address
