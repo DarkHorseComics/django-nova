@@ -88,13 +88,13 @@ class EmailAddress(models.Model):
             self.confirmed_at = datetime.now()
             try:
                 #set up a user account if it exists
-                self.user = User.objects.get(email=email)
+                self.user = User.objects.get(email=self.email)
             except User.DoesNotExist:
                 #create one if it doesn't
                 #TODO: provide notification to these users, letting them know
                 #that they need to reset their password
-                username = _creat_unique_username_from_email(email)
-                self.user = User.objects.create_user(username, email)
+                username = self._create_unique_username_from_email(self.email)
+                self.user = User.objects.create_user(username, self.email)
                 self.user.set_unusable_password()
                 self.user.save()
             
