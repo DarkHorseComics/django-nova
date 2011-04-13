@@ -1,7 +1,9 @@
 syntax: glob
-*.pyc
+
 .*
 build/
 dist/
 *.egg-info
 *.sqlite3
+*.orig
+*.pyc
