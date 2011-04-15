@@ -96,7 +96,7 @@ def track_document(html, domain=None, campaign=None, source='newsletter', medium
     anchors = soup.findAll('a')
 
     if not domain:
-        domain = Site.objects.get_current()
+        domain = Site.objects.get_current().domain
 
     tracking_args = {
         'utm_campaign': campaign,

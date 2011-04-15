@@ -255,13 +255,16 @@ class NewsletterIssue(models.Model):
         super(NewsletterIssue, self).save(*args, **kwargs)
 
         if self.template:
-            self.rendered_template = self.render()
+            self.rendered_template = self.render(track=self.track)
             super(NewsletterIssue, self).save()
 
-    def premail(self, body_text, plaintext=False):
+    def premail(self, body_text=None, plaintext=False):
         """
         Run 'premailer' on the specified email body to format html to be readable by email clients
         """
+        if not body_text:
+            body_text = self.template
+
         args = ['premailer', '--mode', 'txt' if plaintext else 'html']
 
         p = Popen(args, stdin=PIPE, stdout=PIPE, stderr=PIPE)
@@ -305,7 +308,7 @@ class NewsletterIssue(models.Model):
         # Track links
         if track:
             rendered_template = track_document(rendered_template, domain=self.tracking_domain,
-                    campaign=self.tracking_campaign, source='newsletter-%s' % (self.pk,))
+                    campaign=self.tracking_campaign, source='newsletter-%s' % (self.newsletter.pk,))
 
         # Run premailer
         if premail:
@@ -339,7 +342,8 @@ class NewsletterIssue(models.Model):
 
         for send_to in email_addresses:
                 # Render the newsletter for this subscriber
-                rendered_template = self.render(premail=False, extra_context={'email': send_to})
+                rendered_template = self.render(track=self.track,
+                        premail=False, extra_context={'email': send_to})
 
                 # Get html and plaintext templates
                 html_template = self.premail(rendered_template, plaintext=False)
@@ -347,7 +351,7 @@ class NewsletterIssue(models.Model):
 
                 # Send multipart message
                 send_multipart_mail(self.subject,
-                        text_body=plaintext_template,
+                        txt_body=plaintext_template,
                         html_body=html_template,
                         from_email=self.newsletter.from_email,
                         headers=headers,
