@@ -172,12 +172,12 @@ class TestEmailModel(TestCase):
         self.assertEqual(subscriptions.count(), 1)
         self.assertEqual(subscriptions[0].newsletter, newsletter2)
 
-def test_context_processor(newsletter_issue, email):
+def test_context_processor(newsletter_issue):
     """
     nova context processor for testing.
     """
-    if not newsletter_issue or not email:
-        return {'test': 'error! got newsletter_issue:{0}, email:{1}'.format(newsletter_issue, email)}
+    if not newsletter_issue:
+        return {'test': 'error! got newsletter_issue:{0}'.format(newsletter_issue)}
     else:
         return {'test': 'extra test context'}
 
@@ -202,7 +202,7 @@ class TestNewsletterIssueModel(TestCase):
         approver4@example.com"""
         self.newsletter1.save()
 
-        self.template = " <html><head></head><body><h1>Test</h1></body></html>"
+        self.template = "<html><head></head><body><h1>Test</h1></body></html>"
 
         self.plaintext = "****\nTest\n****"
 
@@ -278,8 +278,7 @@ class TestNewsletterIssueModel(TestCase):
         template = """\
         Issue ID: {{ issue.pk }}
         Date: {% now "Y-m-d" %}
-        Email: {{ email }}
-        """
+        Email: {{ email }}"""
         
         issue = NewsletterIssue()
         issue.subject = 'Test'
@@ -290,10 +289,10 @@ class TestNewsletterIssueModel(TestCase):
         expected_template = """\
         Issue ID: {issue_id}
         Date: {date:%Y-%m-%d}
-        Email: {email}
-        """.format(issue_id=issue.pk, date=datetime.now(), email=email)
+        Email: {email}""".format(issue_id=issue.pk, date=datetime.now(), email=email)
 
-        rendered_template = issue.render(email=email)
+        rendered_template = issue.render(extra_context={
+            'email': email})
         self.assertEqual(rendered_template, expected_template)
 
     def test_nova_context_processors(self):
@@ -306,12 +305,42 @@ class TestNewsletterIssueModel(TestCase):
 
         try:
             issue = NewsletterIssue(template="{{ test }}")
-            self.assertEqual('extra test context', issue.render(EmailAddress(email='foo@example.com')))
+            issue.newsletter = self.newsletter1
+            issue.save()
+
+            self.assertEqual('extra test context', issue.render(extra_context={
+                'email': EmailAddress(email='foo@example.com')}))
         finally:
             if old_settings == '!unset':
                 del settings.NOVA_CONTEXT_PROCESSORS
             else:
                 settings.NOVA_CONTEXT_PROCESSORS = old_settings
+
+    def test_link_canonicalization(self):
+        """
+        """
+        template = """\
+        <a href="/">Home</a>
+        <a href="/store">Store</a>
+        <a href="http://www.google.com/">Fully Qualified</a>"""
+
+        issue = NewsletterIssue()
+        issue.subject = 'Test'
+        issue.template = template
+        issue.newsletter = self.newsletter1
+        issue.save()
+
+        rendered_template = issue.render(track=False, premail=False)
+
+        canon1 = '<a href="http://example.com/">Home</a>'
+        canon2 = '<a href="http://example.com/store">Store</a>'
+
+        self.assertTrue(canon1 in rendered_template)
+        self.assertTrue(canon2 in rendered_template)
+
+        ignore1 = '<a href="http://www.google.com/">Fully Qualified</a>'
+
+        self.assertTrue(ignore1 in rendered_template)
 
     def test_link_tracking(self):
         """
@@ -329,7 +358,7 @@ class TestNewsletterIssueModel(TestCase):
             </head>
             <body>
                 <a href="http://www.example.com/">Google</a>
-                <a href="http://www.darkhorse.com/">Dark Horse</a>
+                <a href="http://www.darkhorse.com/?hai=true">Dark Horse</a>
                 <a href="http://digital.darkhorse.com/">Digital Dark Horse</a>
                 <a href="http://www.tfaw.com/">TFAW</a>
             </body>
@@ -340,18 +369,22 @@ class TestNewsletterIssueModel(TestCase):
         issue.subject = 'Test'
         issue.template = template
         issue.newsletter = self.newsletter1
-        issue.tracking_term = 'month'
         issue.tracking_campaign = 'DHD'
+        issue.tracking_domain = 'darkhorse.com'
         issue.save()
 
-        expected_result = """\
-        <a href="http://www.example.com/?utm_term=month&amp;utm_medium=email&amp;utm_source=newsletter-{pk}&amp;utm_campaign=DHD" style="font-weight: bold; color: pink;">Google</a>""".format(pk=issue.pk)
-        
-        # Sanity check
-        self.assertTrue(issue.track)
+        track1 = """<a href="http://www.darkhorse.com/?hai=true&amp;utm_campaign=DHD&amp;utm_medium=email&amp;utm_source=newsletter-{pk}&amp;utm_term=newsletter-{pk}-link-1-Dark+Horse" class="tracked">Dark Horse</a>""".format(pk=issue.newsletter.pk)
 
-        rendered_template = issue.render(email='blah@blah.com')
-        self.assertTrue(expected_result.strip() in rendered_template)
+        track2 = """<a href="http://digital.darkhorse.com/?utm_campaign=DHD&amp;utm_medium=email&amp;utm_source=newsletter-{pk}&amp;utm_term=newsletter-{pk}-link-2-Digital+Dark+Horse" class="tracked">Digital Dark Horse</a>""".format(pk=issue.newsletter.pk)
+        
+        rendered_template = issue.render(premail=False)
+
+        # Assert both darkhorse.com links were tracked
+        self.assertTrue(track1 in rendered_template)
+        self.assertTrue(track2 in rendered_template)
+
+        # Assert that only two links were tracked
+        self.assertEqual(rendered_template.count('tracked'), 2)
 
     def test_premail(self):
         """
@@ -525,6 +558,8 @@ class TestSignupViews(TestCase):
         email_address = EmailAddress.objects.get(email=email)
         confirm_url = reverse('nova.views.confirm', args=(email_address.token,))
 
+        self.assertEqual(confirm_url, email_address.get_confirm_url())
+
         message = mail.outbox[0].body
         self.assertTrue(confirm_url in message)
         
@@ -562,6 +597,8 @@ class TestSignupViews(TestCase):
         email_address = EmailAddress.objects.get(email=email)
         unsubscribe_url = reverse('nova.views.unsubscribe', args=(email_address.token,))
         response = self.client.get(unsubscribe_url)
+
+        self.assertEqual(unsubscribe_url, email_address.get_unsubscribe_url())
 
         # Ensure this user was successfully unsubscribed
         response = self.client.post(unsubscribe_url)
