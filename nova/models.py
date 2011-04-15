@@ -84,8 +84,9 @@ class EmailAddress(models.Model):
         """
         self.email = _sanitize_email(self.email)
 
-        if self.confirmed and self.confirmed_at is None:
-            self.confirmed_at = datetime.now()
+        if self.confirmed:
+            if self.confirmed_at is None:
+                self.confirmed_at = datetime.now()        
             try:
                 #set up a user account if it exists
                 self.user = User.objects.get(email=self.email)
