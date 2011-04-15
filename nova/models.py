@@ -99,6 +99,10 @@ class EmailAddress(models.Model):
                 self.user.set_unusable_password()
                 self.user.save()
             
+            except User.MultipleObjectsReturned:
+                #multiple users with the same email!
+                self.user = User.objects.filter(email=self.email)[0]
+                
         super(EmailAddress, self).save(*args, **kwargs)
 
     @property
