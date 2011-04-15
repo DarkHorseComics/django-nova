@@ -102,16 +102,14 @@ class EmailAddress(models.Model):
                 
         super(EmailAddress, self).save(*args, **kwargs)
 
-    @property
-    def confirm_url(self):
+    def get_confirm_url(self):
         """
         Returns the unique confirmation URL for this email address,
         suitable for use in follow-up emails.
         """
         return reverse('nova.views.confirm', args=(self.token,))
 
-    @property
-    def unsubscribe_url(self):
+    def get_unsubscribe_url(self):
         """
         Returns the unique unsubscribe URL for this email address,
         suitable for use in follow-up emails.
