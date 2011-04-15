@@ -10,25 +10,21 @@ NOVA_CONTEXT_PROCESSORS:
         newsletter_issue: NewsletterIssue instance that is sending the email
         email: EmailAddress instance that is receiving the email
 """
-import re
 from datetime import datetime
 from subprocess import Popen, PIPE
-from urllib import urlencode
-from urlparse import urlparse
-
-from BeautifulSoup import BeautifulSoup
 
 from django.db import models
 from django.forms import ValidationError
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.urlresolvers import reverse
-from django.core.mail import send_mail, EmailMessage, EmailMultiAlternatives
+from django.core.mail import send_mail, EmailMessage
 from django.core.validators import email_re
 from django.utils.translation import ugettext_lazy as _
 from django.template import Context, Template, TemplateDoesNotExist
 from django.template.loader import find_template_loader
-from django.contrib.sites.models import Site
+
+from nova.helpers import *
 
 TOKEN_LENGTH = 12
 
@@ -37,6 +33,7 @@ def _sanitize_email(email):
 
 def _email_is_valid(email):
     return email_re.match(email)
+
 
 class EmailAddressManager(models.Manager):
     def create_with_random_token(self, email, **kwargs):
@@ -106,12 +103,20 @@ class EmailAddress(models.Model):
         super(EmailAddress, self).save(*args, **kwargs)
 
     @property
-    def get_confirm_url(self):
+    def confirm_url(self):
         """
         Returns the unique confirmation URL for this email address,
         suitable for use in follow-up emails.
         """
         return reverse('nova.views.confirm', args=(self.token,))
+
+    @property
+    def unsubscribe_url(self):
+        """
+        Returns the unique unsubscribe URL for this email address,
+        suitable for use in follow-up emails.
+        """
+        return reverse('nova.views.unsubscribe', args=(self.token,))
 
     def subscribe(self, newsletter):
         """
@@ -175,16 +180,30 @@ class EmailAddress(models.Model):
 class Newsletter(models.Model):
     """
     A basic newsletter model.
+    :todo: Change default_template to a TextField?
     """
-    title = models.CharField(max_length=255, null=False, blank=False)
-    active = models.BooleanField(null=False, blank=False)
-    approvers = models.TextField(null=True, blank=True,
+    title = models.CharField(max_length=255, blank=False)
+    active = models.BooleanField(blank=False)
+    from_email = models.CharField(max_length=255, blank=False, default=settings.NOVA_FROM_EMAIL,
+            help_text=_("The address that issues of this newsletter will be sent from."))
+    reply_to_email = models.CharField(max_length=255, blank=True,
+            help_text=_("The reply to address that will be set for all issues of this newsletter."))
+    approvers = models.TextField(blank=True,
         help_text=_("A whitespace separated list of email addresses."))
-    default_template = models.CharField(max_length=255, null=True, blank=True,
+    default_template = models.CharField(max_length=255, blank=True,
         help_text=_("The name of a default template to use for issues of this newsletter."))
     created_at = models.DateTimeField(auto_now_add=True)
 
     subscriptions = models.ManyToManyField(EmailAddress, through='Subscription')
+
+    def save(self, *args, **kwargs):
+        """
+        If the reply_to_email is blank, set to from_email
+        """
+        if not self.reply_to_email:
+            self.reply_to_email = self.from_email
+
+        super(Newsletter, self).save(*args, **kwargs)
 
     @property
     def subscribers(self):
@@ -199,82 +218,6 @@ class Newsletter(models.Model):
         """
         return u'%s' % self.title
 
-class PremailerException(Exception):
-    """
-    Exception thrown when premailer command finishes with a return code other than 0
-    """
-
-def send_multipart_mail(subject, txt_body, html_body, from_email, recipient_list,
-                        fail_silently=False):
-    """
-    Sends a multipart email with a plaintext part and an html part.
-
-    :param subject: subject line for email
-    :param txt_body: message body for plaintext part of email
-    :param html_body: message body for html part of email
-    :param from_email: email address from which to send message
-    :param recipient_list: list of email addresses to which to send email
-    :fail_silently: whether to raise an exception on delivery failure
-    """
-    message = EmailMultiAlternatives(subject, body=txt_body,
-                                     from_email=from_email, to=recipient_list)
-    message.attach_alternative(html_body, "text/html")
-    return message.send(fail_silently)
-
-def canonicalize_links(html, base_url=None):
-    """
-    Parse an html string, replacing any relative links with fully qualified links
-    """
-    if base_url is None:
-        base_url = "http://"+Site.objects.get_current().domain
-    soup = BeautifulSoup(html)
-    relative_links = soup.findAll(href=re.compile('^/'))
-    for link in relative_links:
-        link['href'] = base_url + link['href']
-
-    return unicode(soup)
-
-def track_links(html, query_string, domain=None):
-    """
-    Parse an html string and append query_string to all links
-    matching the specified domain.
-    """
-    if not domain:
-        domain = Site.objects.get_current().domain
-
-    soup = BeautifulSoup(html)
-
-    for node in soup.findAll('a'):
-        href = node['href']
-        url = urlparse(href)
-
-        if url.netloc.lstrip('www.') == domain.lstrip('www.'):
-            if not url.query:
-                href += '?'
-            else:
-                href += '&'
-            href += query_string
-            node['href'] = href 
-        
-    return soup
-
-def get_tracking_string(source, medium, term, campaign):
-    """
-    Returns a query string for tracking inbound links with Google Analytics.
-
-    :param source: Use to identify a search engine, newsletter name, or other source.
-    :param medium: Use to identify a medium such as email or cost-per-click.
-    :param term: Use to note keywords for this source.
-    :param campaign: Use to identify a sepcific product promotion or campaign.
-    """
-    args = {
-        'utm_source': source,
-        'utm_medium': medium,
-        'utm_term': term,
-        'utm_campaign': campaign,
-    }
-    return urlencode(args)
-
 class NewsletterIssue(models.Model):
     """
     An issue of a newsletter. This model wraps the actual email subject
@@ -284,15 +227,18 @@ class NewsletterIssue(models.Model):
     subject = models.CharField(max_length=255, null=False, blank=False)
     template = models.TextField(null=False, blank=True,
         help_text=_("If template is left empty we'll use the default template from the parent newsletter."))
+    rendered_template = models.TextField(null=True, blank=True)
     
     track = models.BooleanField(default=True,
         help_text=_("Add link tracking to all links from this domain."))
-    tracking_term = models.CharField(max_length=20, blank=True,
-        help_text=_("A short keyword to track by (e.g. 'January')."))
-    tracking_campaign = models.CharField(max_length=20, blank=True,
+    tracking_domain = models.CharField(max_length=255, blank=True, 
+        help_text=_("The domain for which links should be tracked."))
+    tracking_campaign = models.CharField(max_length=20, blank=True, 
         help_text=_("A short keyword to identify this campaign (e.g. 'DHD')."))
 
     created_at = models.DateTimeField(auto_now_add=True)
+    sent_at = models.DateTimeField(blank=True, null=True,
+            help_text=_("When this newsletter issue was last sent to subscribers."))
 
     def save(self, *args, **kwargs):
         """
@@ -303,63 +249,61 @@ class NewsletterIssue(models.Model):
             if self.newsletter.default_template:
                 try:
                     self.template = get_raw_template(self.newsletter.default_template)
-                except Exception:
+                except:
                     pass
 
         super(NewsletterIssue, self).save(*args, **kwargs)
 
-    def render(self, email, plaintext=False, extra_context=None):
+        if self.template:
+            self.rendered_template = self.render()
+            super(NewsletterIssue, self).save()
+
+    def render(self, template=None, canonicalize=True, track=True, premail=True, extra_context=None):
         """
         Render a django template into a formatted newsletter issue.
-        uses the setting NOVA_CONTEXT_PROCESSORS to load a list of functions, similar to django's
-         template context processors to add extra values to the context dictionary.
+        Uses the setting NOVA_CONTEXT_PROCESSORS to load a list of functions, similar to django's
+        template context processors to add extra values to the context dictionary.
         """
+        if not template:
+            template = self.template
+
         context = Context({
             'issue': self,
-            'email': email,
         })
 
         if extra_context:
             context.update(extra_context)
 
+        # Load extra context processors
         for context_processor in getattr(settings, 'NOVA_CONTEXT_PROCESSORS', []):
             module, attr = context_processor.rsplit('.', 1)
             module = __import__(module, fromlist=[attr])
             processor = getattr(module, attr)
-            context.update(processor(newsletter_issue=self, email=email))
+            context.update(processor(newsletter_issue=self))
 
-        # Render template
-        template = Template(self.template)
+        template = Template(template)
         rendered_template = template.render(context)
-        rendered_template = canonicalize_links(rendered_template)
 
-        # Add link tracking
-        if self.track:
-            tracking_string = get_tracking_string(source=('newsletter-%s' % (self.pk)),
-                medium='email',
-                term=self.tracking_term,
-                campaign=self.tracking_campaign)
-            rendered_template = track_links(rendered_template, tracking_string)
+        # Canonicalize relative links
+        if canonicalize:
+            rendered_template = canonicalize_links(rendered_template)
+
+        # Track links
+        if track:
+            rendered_template = track_document(rendered_template, domain=self.tracking_domain,
+                    campaign=self.tracking_campaign, source='newsletter-%s' % (self.pk,))
 
         # Run premailer
-        rendered_template = self.premail(body_text=rendered_template, plaintext=plaintext)
+        if premail:
+            rendered_template = self.premail(body_text=rendered_template)
 
         return rendered_template
 
-    def premail(self, body_text=None, plaintext=False, base_protocol='http'):
+    def premail(self, body_text, plaintext=False, base_protocol='http'):
         """
         Run 'premailer' on the specified email body to format html to be readable by email clients
         """
-        if body_text is None:
-            body_text = self.template
-        if not body_text:
-            return body_text #nothing to do
-
         args = ['premailer', '--mode', 'txt' if plaintext else 'html']
-        # --base-url currently broken in premailer
-        # note: premailer will only return a value in txt mode if the input
-        #       contains valid html, head and body tags.
-        # todo: either use fixed version of premailer, or re-implement in python
 
         p = Popen(args, stdin=PIPE, stdout=PIPE, stderr=PIPE)
         premailed, err = p.communicate(input=str(body_text))
@@ -369,26 +313,40 @@ class NewsletterIssue(models.Model):
         else:
             return premailed
 
-    def send(self, render=True, email_addresses=None):
+    def send(self, email_addresses=None, extra_headers=None, test=False):
         """
         Sends this issue to subscribers of this newsletter. 
         """
+        headers = {
+            'Reply-To': self.newsletter.reply_to_email,        
+        }
+
+        # Set any extra headers
+        if extra_headers:
+            headers.update(extra_headers)
+
+        # Default to sending to all active subscribers
         if not email_addresses:
             email_addresses = self.newsletter.subscribers
 
         for send_to in email_addresses:
-            if render:
-                send_multipart_mail(self.subject,
-                    txt_body=self.render(send_to, plaintext=True),
-                    html_body=self.render(send_to, plaintext=False),
-                    from_email=settings.DEFAULT_MAIL_FROM, recipient_list=(send_to.email,)
-                )
-            else:
-                msg = EmailMessage(self.subject, self.template, settings.DEFAULT_MAIL_FROM, (send_to.email,))
+                # Use rendered_template to avoid extra processing
+                rendered_template = self.render(template=self.rendered_template,
+                        canonicalize=False, track=False, premail=False, extra_context={'email': send_to})
+
+                msg = EmailMessage(self.subject, rendered_template,
+                        self.newsletter.from_email, (send_to.email,))
+
+                msg.headers = headers
                 msg.content_subtype = "html"
                 msg.send()
 
-    def send_test(self, render=True):
+        # Update sent_at timestamp
+        if not test:
+            self.sent_at = datetime.now()
+            self.save()
+
+    def send_test(self):
         """
         Sends this issue to an email address specified by an admin user
         """
@@ -402,7 +360,7 @@ class NewsletterIssue(models.Model):
 
             email_addresses.append(send_to)
 
-        self.send(render, email_addresses)
+        self.send(email_addresses, test=True)
 
     def __unicode__(self):
         """

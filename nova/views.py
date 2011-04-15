@@ -24,7 +24,7 @@ def _send_message(to_addr, subject_template, body_template, context_vars):
     # Strip newlines from subject
     subject = loader.get_template(subject_template).render(context).strip()
     body = loader.get_template(body_template).render(context)
-    send_mail(subject, body, settings.DEFAULT_MAIL_FROM, (to_addr,))
+    send_mail(subject, body, settings.NOVA_FROM_EMAIL, (to_addr,))
 
 def subscribe(request):
     """
@@ -69,9 +69,7 @@ def subscribe(request):
                                 or try again in a few minutes.""" % email_address.email
                             template = error_template 
                         else:
-                            email_address.delete()
-                            ip_addr = request.META.get('REMOTE_ADDR', None)
-                            email_address = EmailAddress.objects.create_with_random_token(email, client_addr=ip_addr)
+                            # Resend confirmation request
                             send_email = True
                     
                 except EmailAddress.DoesNotExist:
@@ -197,4 +195,4 @@ def preview(request, newsletter_issue_id):
     issue = get_object_or_404(NewsletterIssue, id=newsletter_issue_id)
     email = issue.newsletter.subscribers.order_by('?')[0]
 
-    return HttpResponse(issue.render(email))
+    return HttpResponse(issue.render(extra_context={'email':email}))

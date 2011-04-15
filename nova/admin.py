@@ -36,6 +36,11 @@ class NewsletterAdmin(admin.ModelAdmin):
     list_filter = ('active',)
 
 class NewsletterIssueAdmin(admin.ModelAdmin):
+    list_display = ('subject', 'newsletter', 'sent_at','created_at',)
+    list_filter = ('newsletter',)
+    search_fields = ['subject',]
+    readonly_fields = ('rendered_template', 'sent_at',)
+
     actions = [send_newsletter_issue,send_test_newsletter_issue]
 
 admin.site.register(EmailAddress, EmailAddressAdmin)
