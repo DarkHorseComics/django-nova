@@ -258,6 +258,20 @@ class NewsletterIssue(models.Model):
             self.rendered_template = self.render()
             super(NewsletterIssue, self).save()
 
+    def premail(self, body_text, plaintext=False):
+        """
+        Run 'premailer' on the specified email body to format html to be readable by email clients
+        """
+        args = ['premailer', '--mode', 'txt' if plaintext else 'html']
+
+        p = Popen(args, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+        premailed, err = p.communicate(input=str(body_text))
+
+        if p.returncode != 0:
+            raise PremailerException(err)
+        else:
+            return premailed
+
     def render(self, template=None, canonicalize=True, track=True, premail=True, extra_context=None):
         """
         Render a django template into a formatted newsletter issue.
@@ -299,20 +313,6 @@ class NewsletterIssue(models.Model):
 
         return rendered_template
 
-    def premail(self, body_text, plaintext=False, base_protocol='http'):
-        """
-        Run 'premailer' on the specified email body to format html to be readable by email clients
-        """
-        args = ['premailer', '--mode', 'txt' if plaintext else 'html']
-
-        p = Popen(args, stdin=PIPE, stdout=PIPE, stderr=PIPE)
-        premailed, err = p.communicate(input=str(body_text))
-
-        if p.returncode != 0:
-            raise PremailerException(err)
-        else:
-            return premailed
-
     def send(self, email_addresses=None, extra_headers=None, test=False):
         """
         Sends this issue to subscribers of this newsletter. 
@@ -332,7 +332,7 @@ class NewsletterIssue(models.Model):
         for send_to in email_addresses:
                 # Use rendered_template to avoid extra processing
                 rendered_template = self.render(template=self.rendered_template,
-                        canonicalize=False, track=False, premail=False, extra_context={'email': send_to})
+                        canonicalize=False, track=False, extra_context={'email': send_to})
 
                 msg = EmailMessage(self.subject, rendered_template,
                         self.newsletter.from_email, (send_to.email,))
