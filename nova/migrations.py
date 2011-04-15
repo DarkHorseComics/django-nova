@@ -1,5 +1,6 @@
-from finch.base import Migration, SqlMigration
+from django.conf import settings
 
+from finch.base import Migration, SqlMigration
 from nova.models import *
 
 class AddClientAddr(SqlMigration):
@@ -124,7 +125,6 @@ class RemoveInactiveSubscriptions(Migration):
         for subscription in Subscription.objects.filter(active=False):
             subscription.delete()
             
-            
 class AddDjangoUserAccounts(Migration):
     """
     Save all confirmed EmailAddresses, so we get new user accounts
@@ -133,3 +133,56 @@ class AddDjangoUserAccounts(Migration):
         for address in EmailAddress.objects.filter(confirmed=True):
             #save should set the user attribute
             address.save()
+
+class AddNewsletterIssueFields(SqlMigration):
+    """
+    Add the sent_at and rendered_template fields to the
+    NewsletterIssue model.
+    """
+    sql = """\
+    ALTER TABLE {table}
+    ADD COLUMN rendered_template text NOT NULL DEFAULT '',
+    ADD COLUMN sent_at timestamp DEFAULT NULL"""
+
+    class Meta:
+        model = NewsletterIssue
+
+class AddNewsletterFields(SqlMigration):
+    """
+    Add the from_email and reply_to_email fields to the
+    Newsletter model.
+    """
+    sql = """\
+    ALTER TABLE {table}
+    ADD COLUMN from_email VARCHAR(255) NOT NULL DEFAULT '',
+    ADD COLUMN reply_to_email VARCHAR(255) NOT NULL DEFAULT ''"""
+
+    def apply(self, *args, **kwargs):
+        for newsletter in Newsletter.objects.all():
+            newsletter.from_email = settings.NOVA_FROM_EMAIL
+            newsletter.save()
+
+    class Meta:
+        model = Newsletter
+
+class UpdateNewsletterTrackingFields(SqlMigration):
+    """
+    Add the tracking_domain field and drop the tracking_term
+    field on the NewsletterIssue model.
+    """
+    sql = """\
+    ALTER TABLE {table}
+    ADD COLUMN tracking_domain VARCHAR(255) NOT NULL DEFAULT '',
+    DROP COLUMN tracking_term"""
+
+    class Meta:
+        model = NewsletterIssue
+
+class NormalizeEmailAddresses(Migration):
+    """
+    Normalize all existing email addresses by calling
+    their save method.
+    """
+    def apply(self, *args, **kwargs):
+        for email in EmailAddress.objects.all():
+            email.save()
