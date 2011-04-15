@@ -14,6 +14,10 @@ from django.utils.translation import ugettext as _
 from nova.models import EmailAddress, Newsletter, NewsletterIssue, Subscription
 
 def send_newsletter_issue(modeladmin, request, queryset):
+    """
+    Ask the user to confirm their intent to send a newsletter issue
+    before continuing. Based on the delete_selected action from the Django admin.
+    """
     opts = modeladmin.model._meta
     app_label = opts.app_label
 
