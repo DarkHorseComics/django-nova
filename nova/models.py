@@ -313,9 +313,17 @@ class NewsletterIssue(models.Model):
 
         return rendered_template
 
-    def send(self, email_addresses=None, extra_headers=None, test=False):
+    def send(self, email_addresses=None, extra_headers=None, mark_as_sent=True):
         """
         Sends this issue to subscribers of this newsletter. 
+
+        :param email_addresses: A list of EmailAddress objects to be used as the recipient list.
+        :param extra_headers: Any extra mail headers to be used.
+        :param mark_as_sent: Whether to record this issue as sent.
+
+        :todo: This method is not very performant as it has to render a template
+        for every recipient of a newsletter. Investigate any options to make this
+        method more performant.
         """
         headers = {
             'Reply-To': self.newsletter.reply_to_email,        
@@ -330,19 +338,23 @@ class NewsletterIssue(models.Model):
             email_addresses = self.newsletter.subscribers
 
         for send_to in email_addresses:
-                # Use rendered_template to avoid extra processing
-                rendered_template = self.render(template=self.rendered_template,
-                        canonicalize=False, track=False, extra_context={'email': send_to})
+                # Render the newsletter for this subscriber
+                rendered_template = self.render(premail=False, extra_context={'email': send_to})
 
-                msg = EmailMessage(self.subject, rendered_template,
-                        self.newsletter.from_email, (send_to.email,))
+                # Get html and plaintext templates
+                html_template = self.premail(rendered_template, plaintext=False)
+                plaintext_template = self.premail(rendered_template, plaintext=True)
 
-                msg.headers = headers
-                msg.content_subtype = "html"
-                msg.send()
+                # Send multipart message
+                send_multipart_mail(self.subject,
+                        text_body=plaintext_template,
+                        html_body=html_template,
+                        from_email=self.newsletter.from_email,
+                        headers=headers,
+                        recipient_list=(send_to.email,))
 
         # Update sent_at timestamp
-        if not test:
+        if mark_as_sent:
             self.sent_at = datetime.now()
             self.save()
 
@@ -360,7 +372,7 @@ class NewsletterIssue(models.Model):
 
             email_addresses.append(send_to)
 
-        self.send(email_addresses, test=True)
+        self.send(email_addresses, mark_as_sent=False)
 
     def __unicode__(self):
         """

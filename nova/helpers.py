@@ -18,7 +18,7 @@ class PremailerException(Exception):
     """
 
 def send_multipart_mail(subject, txt_body, html_body, from_email, recipient_list,
-                        fail_silently=False):
+                        headers=None, fail_silently=False):
     """
     Sends a multipart email with a plaintext part and an html part.
 
@@ -31,6 +31,10 @@ def send_multipart_mail(subject, txt_body, html_body, from_email, recipient_list
     """
     message = EmailMultiAlternatives(subject, body=txt_body,
                                      from_email=from_email, to=recipient_list)
+
+    if headers:
+        message.headers = headers
+
     message.attach_alternative(html_body, "text/html")
     return message.send(fail_silently)
 
