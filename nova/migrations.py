@@ -157,13 +157,21 @@ class AddNewsletterFields(SqlMigration):
     ADD COLUMN from_email VARCHAR(255) NOT NULL DEFAULT '',
     ADD COLUMN reply_to_email VARCHAR(255) NOT NULL DEFAULT ''"""
 
+    class Meta:
+        model = Newsletter
+
+class AddDefaultNewsletterFromEmail(Migration):
+    """
+    Populate existing newsletters with a default from_email
+    address.
+    """
     def apply(self, *args, **kwargs):
         for newsletter in Newsletter.objects.all():
             newsletter.from_email = settings.NOVA_FROM_EMAIL
             newsletter.save()
 
     class Meta:
-        model = Newsletter
+        requires = [AddNewsletterFields,]
 
 class UpdateNewsletterTrackingFields(SqlMigration):
     """

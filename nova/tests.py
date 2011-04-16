@@ -318,6 +318,7 @@ class TestNewsletterIssueModel(TestCase):
 
     def test_link_canonicalization(self):
         """
+        Ensure that links are canonicalized correctly.
         """
         template = """\
         <a href="/">Home</a>
