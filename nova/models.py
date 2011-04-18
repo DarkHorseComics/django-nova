@@ -263,6 +263,9 @@ class NewsletterIssue(models.Model):
         if not body_text:
             body_text = self.template
 
+        if not getattr(settings, 'NOVA_USE_PREMAILER', False):
+            return body_text
+
         args = ['premailer', '--mode', 'txt' if plaintext else 'html']
 
         p = Popen(args, stdin=PIPE, stdout=PIPE, stderr=PIPE)
@@ -310,8 +313,7 @@ class NewsletterIssue(models.Model):
 
         # Run premailer
         if premail:
-            if getattr(settings, 'NOVA_USE_PREMAILER', False):
-                rendered_template = self.premail(body_text=rendered_template)
+            rendered_template = self.premail(body_text=rendered_template)
 
         return rendered_template
 
