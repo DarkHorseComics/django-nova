@@ -30,10 +30,7 @@ def send_multipart_mail(subject, txt_body, html_body, from_email, recipient_list
     :param fail_silently: whether to raise an exception on delivery failure
     """
     message = EmailMultiAlternatives(subject, body=txt_body,
-                                     from_email=from_email, to=recipient_list)
-
-    if headers:
-        message.headers = headers
+                                     from_email=from_email, to=recipient_list, headers=headers)
 
     message.attach_alternative(html_body, "text/html")
     return message.send(fail_silently)
