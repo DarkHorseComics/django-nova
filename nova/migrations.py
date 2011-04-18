@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.db import connection
 
 from finch.base import Migration, SqlMigration
 from nova.models import *
@@ -125,15 +126,6 @@ class RemoveInactiveSubscriptions(Migration):
         for subscription in Subscription.objects.filter(active=False):
             subscription.delete()
             
-class AddDjangoUserAccounts(Migration):
-    """
-    Save all confirmed EmailAddresses, so we get new user accounts
-    """
-    def apply(self, *args, **kwargs):
-        for address in EmailAddress.objects.filter(confirmed=True):
-            #save should set the user attribute
-            address.save()
-
 class AddNewsletterIssueFields(SqlMigration):
     """
     Add the sent_at and rendered_template fields to the
@@ -186,6 +178,39 @@ class UpdateNewsletterTrackingFields(SqlMigration):
     class Meta:
         model = NewsletterIssue
 
+class RemoveDuplicateEmails(Migration):
+    """
+    Generate a list of duplicate email addresses,
+    remove duplicates, but persist the latest entry.
+    """
+    def apply(self, *args, **kwargs):
+        # Get list of duplicates
+        cursor = connection.cursor()
+        cursor.execute('SELECT UPPER(email) FROM nova_emailaddress GROUP BY UPPER(email) HAVING COUNT(UPPER(email)) > 1')
+        email_addresses = cursor.fetchall()
+
+        print 'Fixing %d duplicate emails...' % (len(email_addresses))
+
+        # Iterate over duplicates
+        for email in email_addresses:
+            dupes = EmailAddress.objects.filter(email__iexact=email[0]).order_by('-created_at')
+
+            # Get the newest object
+            first = dupes[0]
+
+            # Check for a confirmed dupe
+            confirmed = False
+            for email in dupes:
+                if email.confirmed:
+                    confirmed = True
+
+            # Delete all duplicates
+            dupes.exclude(pk=first.pk).delete()
+
+            # Persist confirmed
+            first.confirmed = confirmed
+            first.save()
+
 class NormalizeEmailAddresses(Migration):
     """
     Normalize all existing email addresses by calling
@@ -194,3 +219,6 @@ class NormalizeEmailAddresses(Migration):
     def apply(self, *args, **kwargs):
         for email in EmailAddress.objects.all():
             email.save()
+
+    class Meta:
+        requires = [RemoveDuplicateEmails]
