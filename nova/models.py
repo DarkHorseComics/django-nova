@@ -10,8 +10,6 @@ NOVA_CONTEXT_PROCESSORS:
         newsletter_issue: NewsletterIssue instance that is sending the email
         email: EmailAddress instance that is receiving the email
 """
-import os
-
 from datetime import datetime
 from subprocess import Popen, PIPE
 
