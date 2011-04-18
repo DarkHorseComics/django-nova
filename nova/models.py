@@ -10,6 +10,8 @@ NOVA_CONTEXT_PROCESSORS:
         newsletter_issue: NewsletterIssue instance that is sending the email
         email: EmailAddress instance that is receiving the email
 """
+import os
+
 from datetime import datetime
 from subprocess import Popen, PIPE
 
@@ -310,7 +312,8 @@ class NewsletterIssue(models.Model):
 
         # Run premailer
         if premail:
-            rendered_template = self.premail(body_text=rendered_template)
+            if getattr(settings, 'NOVA_USE_PREMAILER', False):
+                rendered_template = self.premail(body_text=rendered_template)
 
         return rendered_template
 
