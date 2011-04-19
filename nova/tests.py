@@ -387,9 +387,9 @@ class TestNewsletterIssueModel(TestCase):
         issue.tracking_domain = 'darkhorse.com'
         issue.save()
 
-        track1 = """<a href="http://www.darkhorse.com/?hai=true&amp;utm_campaign=DHD&amp;utm_medium=email&amp;utm_source=newsletter-{pk}&amp;utm_term=newsletter-{pk}-link-1-Dark+Horse" class="tracked">Dark Horse</a>""".format(pk=issue.newsletter.pk)
+        track1 = """<a href="http://www.darkhorse.com/?hai=true&amp;utm_campaign=DHD&amp;utm_medium=email&amp;utm_source=newsletter-{pk}&amp;utm_term=newsletter-{pk}-link-2-Dark+Horse" class="tracked">Dark Horse</a>""".format(pk=issue.newsletter.pk)
 
-        track2 = """<a href="http://digital.darkhorse.com/?utm_campaign=DHD&amp;utm_medium=email&amp;utm_source=newsletter-{pk}&amp;utm_term=newsletter-{pk}-link-2-Digital+Dark+Horse" class="tracked">Digital Dark Horse</a>""".format(pk=issue.newsletter.pk)
+        track2 = """<a href="http://digital.darkhorse.com/?utm_campaign=DHD&amp;utm_medium=email&amp;utm_source=newsletter-{pk}&amp;utm_term=newsletter-{pk}-link-3-Digital+Dark+Horse" class="tracked">Digital Dark Horse</a>""".format(pk=issue.newsletter.pk)
         
         rendered_template = issue.render(premail=False)
 

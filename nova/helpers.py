@@ -126,7 +126,7 @@ def track_document(html, domain=None, campaign=None, source='newsletter', medium
 
                 # Generate term that is unique per anchor and include alttext for readability
                 tracking_args['utm_term'] = '{source}-{index}-{alttext}'.format(source=source,
-                        index='link-%s' % (index,), alttext=get_anchor_text(anchor))
+                        index='link-%s' % (index+1,), alttext=get_anchor_text(anchor))
                 url += urlencode(tracking_args)
 
                 # Update href and flag anchor as tracked
