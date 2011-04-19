@@ -222,3 +222,16 @@ class NormalizeEmailAddresses(Migration):
 
     class Meta:
         requires = [RemoveDuplicateEmails]
+
+class AllowNullRenderedTemplate(SqlMigration):
+    """
+    Drop the NULL constraint on the rendered_template field on
+    the NewsletterIssue model.
+    """
+    sql = """\
+    ALTER TABLE {table}
+    ALTER COLUMN rendered_template DROP NOT NULL"""
+
+    class Meta:
+        model = NewsletterIssue
+        requires = [AddNewsletterIssueFields,]
