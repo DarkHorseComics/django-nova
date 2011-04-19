@@ -3,6 +3,7 @@ Basic unit and functional tests for newsletter signups
 """
 from datetime import datetime
 
+from django.conf import settings
 from django.test import TestCase
 from django.core import mail, management
 from django.core.urlresolvers import reverse
@@ -11,6 +12,9 @@ from django.template import Template, Context
 from django.template.loader import render_to_string
 
 from nova.models import EmailAddress, Subscription, Newsletter, NewsletterIssue, send_multipart_mail
+from nova.helpers import get_anchor_text
+
+from BeautifulSoup import BeautifulSoup
 
 def _make_newsletter(title):
     return Newsletter.objects.create(title=title)
@@ -190,6 +194,9 @@ class TestNewsletterIssueModel(TestCase):
         Create a newsletter, newsletter issue and some
         subscriptions to test with.
         """
+        self.use_premailer_default = getattr(settings, 'NOVA_USE_PREMAILER', False)
+        settings.NOVA_USE_PREMAILER = True
+
         # Create some newsletters
         self.newsletter1 = _make_newsletter("Test Newsletter 1")
         self.newsletter2 = _make_newsletter("Test Newsletter 2")
@@ -236,6 +243,12 @@ class TestNewsletterIssueModel(TestCase):
         self.exclude_email.confirmed = True
         self.exclude_email.save()
         Subscription.objects.create(email_address=self.exclude_email, newsletter=self.newsletter2)
+
+    def tearDown(self):
+        """
+        Restore settings defaults.
+        """
+        settings.NOVA_USE_PREMAILER = self.use_premailer_default
 
     def test_default_template(self):
         """
@@ -686,4 +699,37 @@ class TestManagement(TestCase):
         self.assertEqual(len(mail.outbox), 0)
         
         
-        
+class TestNovaHelpers(TestCase):
+    """
+    Test Nova helper functions.
+    """
+    def test_get_anchor_text(self):
+        # Test normal anchor
+        anchor_text = 'test anchor'
+        anchor = '<html><body><a href="http://www.example.com/">{anchor_text}</a></body></html>'.format(anchor_text=anchor_text)
+        soup = BeautifulSoup(anchor)
+
+        self.assertEqual(get_anchor_text(soup.find('a')), anchor_text)
+
+        # Text anchor with an image that has an alt attribute
+        anchor_text = 'test anchor image'
+        anchor = '<html><body><a href="http://www.example.com/"><img src="blank" alt="{anchor_text}" /></a></body></html>'.format(anchor_text=anchor_text)
+        soup = BeautifulSoup(anchor)
+
+        self.assertEqual(get_anchor_text(soup.find('a')), anchor_text)
+
+        # Text anchor with an image that does not have an alt attribute
+        anchor_text = 'test anchor image'
+        anchor = '<html><body><a href="http://www.example.com/"><img src="blank" /></a></body></html>'.format(anchor_text=anchor_text)
+        soup = BeautifulSoup(anchor)
+
+        self.assertNotEqual(get_anchor_text(soup.find('a')), anchor_text)
+        self.assertEqual(get_anchor_text(soup.find('a')), 'image')
+
+        # Test anchor with child elements that are not images
+        anchor_text = 'anchor text'
+        anchor = '<html><body><a href="http://www.example.com/"><span>{anchor_text}</span></a></body></html>'.format(anchor_text=anchor_text)
+        soup = BeautifulSoup(anchor)
+
+        self.assertNotEqual(get_anchor_text(soup.find('a')), anchor_text)
+        self.assertEqual(get_anchor_text(soup.find('a')), 'html')

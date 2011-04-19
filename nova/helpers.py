@@ -62,16 +62,20 @@ def get_anchor_text(anchor):
 
     if not alttext:
         # Does this anchor contain child nodes?
-        children = node.contents
+        children = anchor.contents
         if len(children) > 0:
             # Check the first child to see if it is an image tag
-            first_child = node.contents[0]
+            first_child = children[0]
             if first_child.name == 'img':
-                # Get the image alt text
-                alttext = img['alt']
-                if not alttext:
+
+                if first_child.has_key('alt'):
+                    # Get the image alt text
+                    alttext = first_child['alt']
+                else:
                     # If the alt attribute is empty, return default
                     alttext = 'image'
+            else:
+                alttext = 'html'
 
     return alttext
 
