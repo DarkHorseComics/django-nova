@@ -182,7 +182,7 @@ class Newsletter(models.Model):
     """
     title = models.CharField(max_length=255, blank=False)
     active = models.BooleanField(blank=False)
-    from_email = models.CharField(max_length=255, blank=False, default=settings.NOVA_FROM_EMAIL,
+    from_email = models.CharField(max_length=255, blank=False, default=getattr(settings, 'NOVA_FROM_EMAIL', ''),
             help_text=_("The address that issues of this newsletter will be sent from."))
     reply_to_email = models.CharField(max_length=255, blank=True,
             help_text=_("The reply to address that will be set for all issues of this newsletter."))
