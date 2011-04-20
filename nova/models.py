@@ -24,7 +24,7 @@ from django.utils.translation import ugettext_lazy as _
 from django.template import Context, Template, TemplateDoesNotExist
 from django.template.loader import find_template_loader
 
-from nova.helpers import track_document, canonicalize_links, send_multipart_mail, PremailerException
+from nova.helpers import track_document, canonicalize_links, send_multipart_mail, PremailerException, get_raw_template
 
 TOKEN_LENGTH = 12
 
@@ -341,27 +341,29 @@ class NewsletterIssue(models.Model):
         if not email_addresses:
             email_addresses = self.newsletter.subscribers
 
-        for send_to in email_addresses:
-                # Render the newsletter for this subscriber
-                rendered_template = self.render(track=self.track,
-                        premail=False, extra_context={'email': send_to})
-
-                # Get html and plaintext templates
-                html_template = self.premail(rendered_template, plaintext=False)
-                plaintext_template = self.premail(rendered_template, plaintext=True)
-
-                # Send multipart message
-                send_multipart_mail(self.subject,
-                        txt_body=plaintext_template,
-                        html_body=html_template,
-                        from_email=self.newsletter.from_email,
-                        headers=headers,
-                        recipient_list=(send_to.email,))
-
         # Update sent_at timestamp
         if mark_as_sent:
             self.sent_at = datetime.now()
             self.save()
+
+        # Get html and plaintext templates
+        html_template = self.premail(plaintext=False)
+        plaintext_template = self.premail(plaintext=True)
+
+        for send_to in email_addresses:
+                # Render the newsletter for this subscriber
+                rendered_html_template = self.render(template=html_template,
+                        track=self.track, premail=False, extra_context={'email': send_to})
+                rendered_plaintext_template = self.render(template=plaintext_template,
+                        track=self.track, premail=False, extra_context={'email': send_to})
+
+                # Send multipart message
+                send_multipart_mail(self.subject,
+                        txt_body=rendered_plaintext_template,
+                        html_body=rendered_html_template,
+                        from_email=self.newsletter.from_email,
+                        headers=headers,
+                        recipient_list=(send_to.email,))
 
     def send_test(self):
         """
@@ -406,17 +408,3 @@ class Subscription(models.Model):
         """
         return u'{email} to {newsletter})'.format(email=self.email_address,
                                                   newsletter=self.newsletter)
-
-def get_raw_template(name, dirs=None):
-    """
-    Uses Django's template loaders to find and return the
-    raw template source. 
-    """
-    for loader_name in settings.TEMPLATE_LOADERS:
-        loader = find_template_loader(loader_name)
-        if loader is not None:
-            try:
-                return loader.load_template_source(name)[0]
-            except TemplateDoesNotExist:
-                pass
-    raise TemplateDoesNotExist(name)

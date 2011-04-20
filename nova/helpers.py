@@ -17,6 +17,20 @@ class PremailerException(Exception):
     Exception thrown when premailer command finishes with a return code other than 0
     """
 
+def get_raw_template(name, dirs=None):
+    """
+    Uses Django's template loaders to find and return the
+    raw template source. 
+    """
+    for loader_name in settings.TEMPLATE_LOADERS:
+        loader = find_template_loader(loader_name)
+        if loader is not None:
+            try:
+                return loader.load_template_source(name)[0]
+            except TemplateDoesNotExist:
+                pass
+    raise TemplateDoesNotExist(name)
+
 def send_multipart_mail(subject, txt_body, html_body, from_email, recipient_list,
                         headers=None, fail_silently=False):
     """
@@ -40,6 +54,7 @@ def canonicalize_links(html, base_url=None):
     Parse an html string and replace any relative links with fully qualified links.
     :param html: The document to canonicalize.
     :param base_url: The (optional) base url to canonicalize to.
+    :todo: Add protocol to links missing one.
     """
     if base_url is None:
         base_url = "http://"+Site.objects.get_current().domain
@@ -66,6 +81,7 @@ def get_anchor_text(anchor):
         if len(children) > 0:
             # Check the first child to see if it is an image tag
             first_child = children[0]
+            # :todo: Fix 'NavigableString' object has no attribute 'name'
             if first_child.name == 'img':
 
                 if first_child.has_key('alt'):
