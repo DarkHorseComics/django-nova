@@ -189,11 +189,8 @@ def unsubscribe(request, token=None):
 @permission_required('nova.change_newsletterinstance')
 def preview(request, newsletter_issue_id):
     """
-    Render the specified newsletter issue with a random EmailAddress.
-
-    This view may deadlock if the django deployment doesn't support multiple simultaneous requets, because
-     issue.render needs to fetch css files, and if the css files live behind django that leads to multiple
-     simultaneous requests
+    Render the specified newsletter issue with a random EmailAddress
+    so an admin can preview a newsletter before mailing it.
     """
     email = None
     issue = get_object_or_404(NewsletterIssue, id=newsletter_issue_id)

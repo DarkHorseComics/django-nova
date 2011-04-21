@@ -686,14 +686,14 @@ class TestNovaHelpers(TestCase):
 
         self.assertEqual(get_anchor_text(soup.find('a')), anchor_text)
 
-        # Text anchor with an image that has an alt attribute
+        # Test anchor with an image that has an alt attribute
         anchor_text = 'test anchor image'
         anchor = '<html><body><a href="http://www.example.com/"><img src="blank" alt="{anchor_text}" /></a></body></html>'.format(anchor_text=anchor_text)
         soup = BeautifulSoup(anchor)
 
         self.assertEqual(get_anchor_text(soup.find('a')), anchor_text)
 
-        # Text anchor with an image that does not have an alt attribute
+        # Test anchor with an image that does not have an alt attribute
         anchor_text = 'test anchor image'
         anchor = '<html><body><a href="http://www.example.com/"><img src="blank" /></a></body></html>'.format(anchor_text=anchor_text)
         soup = BeautifulSoup(anchor)
@@ -701,7 +701,7 @@ class TestNovaHelpers(TestCase):
         self.assertNotEqual(get_anchor_text(soup.find('a')), anchor_text)
         self.assertEqual(get_anchor_text(soup.find('a')), 'image')
 
-        # Text anchor with an image that has an alt attribute and is not the first child
+        # Test anchor with an image that has an alt attribute and is not the first child
         anchor_text = 'test anchor image linebreak'
         anchor = '<html><body><a href="http://www.example.com/">\n<span>blank</span><img src="blank" alt="{anchor_text}" /></a></body></html>'.format(anchor_text=anchor_text)
         soup = BeautifulSoup(anchor)
