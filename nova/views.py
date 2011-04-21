@@ -29,6 +29,7 @@ def _send_message(to_addr, subject_template, body_template, context_vars):
 def subscribe(request):
     """
     Basic newsletter signup view
+    :todo: Refactor this view to make it more generic.
     """
     context = {}
     template = 'nova/subscribe.html'
@@ -70,6 +71,8 @@ def subscribe(request):
                             template = error_template 
                         else:
                             # Resend confirmation request
+                            # TODO: Don't spam a user with multiple confirmation
+                            # requests if possible
                             send_email = True
                     
                 except EmailAddress.DoesNotExist:
