@@ -195,7 +195,12 @@ def preview(request, newsletter_issue_id):
      issue.render needs to fetch css files, and if the css files live behind django that leads to multiple
      simultaneous requests
     """
+    email = None
     issue = get_object_or_404(NewsletterIssue, id=newsletter_issue_id)
-    email = issue.newsletter.subscribers.order_by('?')[0]
+    subscribers = issue.newsletter.subscribers.order_by('?')
 
-    return HttpResponse(issue.render(extra_context={'email':email}))
+    if subscribers.count() > 0:
+        email = subscribers[0]
+
+    premailed_template, _ = issue.premail(track=issue.track, plaintext=False)
+    return HttpResponse(issue.render(template=premailed_template, extra_context={'email':email}))

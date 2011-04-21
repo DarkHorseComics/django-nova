@@ -7,7 +7,10 @@ import string
 from urllib import urlencode
 from urlparse import urlparse
 
+from django.conf import settings
 from django.contrib.sites.models import Site
+from django.template import TemplateDoesNotExist
+from django.template.loader import find_template_loader
 from django.core.mail import EmailMultiAlternatives
 
 from BeautifulSoup import BeautifulSoup

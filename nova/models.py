@@ -21,8 +21,7 @@ from django.core.urlresolvers import reverse
 from django.core.mail import send_mail, EmailMessage
 from django.core.validators import email_re
 from django.utils.translation import ugettext_lazy as _
-from django.template import Context, Template, TemplateDoesNotExist
-from django.template.loader import find_template_loader
+from django.template import Context, Template
 
 from nova.helpers import track_document, canonicalize_links, send_multipart_mail, PremailerException, get_raw_template
 
@@ -253,30 +252,68 @@ class NewsletterIssue(models.Model):
         super(NewsletterIssue, self).save(*args, **kwargs)
 
         if self.template:
-            self.rendered_template = self.render(track=self.track)
+            html_template, _ = self.premail(track=self.track, plaintext=False)
+            self.rendered_template = self.render(template=html_template)
             super(NewsletterIssue, self).save()
 
-    def premail(self, body_text=None, plaintext=False):
+    def premailer(self, template, plaintext=False):
         """
-        Run 'premailer' on the specified email body to format html to be readable by email clients
+        Call the external premailer script on the provided template
+        to format an html email to be readable by a wide variety of email clients.
+
+        :param template: The template to pass into premailer.
+        :param plaintext: Whether to render this template as HTML or plaintext.
         """
-        if not body_text:
-            body_text = self.template
-
-        if not getattr(settings, 'NOVA_USE_PREMAILER', False):
-            return body_text
-
+        # Prep args to pass to premailer
         args = ['premailer', '--mode', 'txt' if plaintext else 'html']
 
+        # Pipe arguments to premailer
         p = Popen(args, stdin=PIPE, stdout=PIPE, stderr=PIPE)
-        premailed, err = p.communicate(input=str(body_text))
+        premailed, err = p.communicate(input=str(template))
 
+        # Ensure premailer returned a valid response
         if p.returncode != 0:
             raise PremailerException(err)
         else:
             return premailed
 
-    def render(self, template=None, canonicalize=True, track=True, premail=True, extra_context=None):
+    def premail(self, template=None, canonicalize=True, track=True, plaintext=True):
+        """
+        Run the newsletter template through several methods to 
+        prep it for mailing.
+        
+        :param template: The template to premail, defaults to this newsletters current template.
+        :param canonicalize: If True, canonicalize the links in this template.
+        :param track: If True, subject this template to link tracking.
+        :param plaintext: Whether to return a plaintext copy of this template.
+        :return: Returns a tuple (html_template, plaintext_template) containing the two
+        rendered templates. If plaintext is False, plaintext_template will be None.
+        """
+        html_template = None
+        plaintext_template = None
+
+        if not template:
+            template = self.template
+
+        # Canonicalize relative links
+        if canonicalize:
+            template = canonicalize_links(template)
+
+        # Track links
+        if track:
+            template = track_document(template, domain=self.tracking_domain,
+                    campaign=self.tracking_campaign, source='newsletter-%s' % (self.newsletter.pk,))
+
+        # Run premailer
+        if getattr(settings, 'NOVA_USE_PREMAILER', False):
+            html_template = self.premailer(template)
+            plaintext_template = self.premailer(template, plaintext=True)
+        else:
+            html_template = template
+
+        return (html_template, plaintext_template)
+
+    def render(self, template=None, extra_context=None):
         """
         Render a django template into a formatted newsletter issue.
         Uses the setting NOVA_CONTEXT_PROCESSORS to load a list of functions, similar to django's
@@ -301,19 +338,6 @@ class NewsletterIssue(models.Model):
 
         template = Template(template)
         rendered_template = template.render(context)
-
-        # Canonicalize relative links
-        if canonicalize:
-            rendered_template = canonicalize_links(rendered_template)
-
-        # Track links
-        if track:
-            rendered_template = track_document(rendered_template, domain=self.tracking_domain,
-                    campaign=self.tracking_campaign, source='newsletter-%s' % (self.newsletter.pk,))
-
-        # Run premailer
-        if premail:
-            rendered_template = self.premail(body_text=rendered_template)
 
         return rendered_template
 
@@ -346,16 +370,15 @@ class NewsletterIssue(models.Model):
             self.sent_at = datetime.now()
             self.save()
 
-        # Get html and plaintext templates
-        html_template = self.premail(plaintext=False)
-        plaintext_template = self.premail(plaintext=True)
+        # Premail template
+        html_template, plaintext_template = self.premail(track=self.track)
 
         for send_to in email_addresses:
                 # Render the newsletter for this subscriber
                 rendered_html_template = self.render(template=html_template,
-                        track=self.track, premail=False, extra_context={'email': send_to})
+                        extra_context={'email': send_to})
                 rendered_plaintext_template = self.render(template=plaintext_template,
-                        track=self.track, premail=False, extra_context={'email': send_to})
+                        extra_context={'email': send_to})
 
                 # Send multipart message
                 send_multipart_mail(self.subject,

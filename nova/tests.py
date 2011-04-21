@@ -12,9 +12,10 @@ from django.template import Template, Context
 from django.template.loader import render_to_string
 
 from nova.models import EmailAddress, Subscription, Newsletter, NewsletterIssue, send_multipart_mail
-from nova.helpers import canonicalize_links, get_anchor_text
+from nova.helpers import canonicalize_links, get_anchor_text, track_document
 
 from BeautifulSoup import BeautifulSoup
+from mock import patch
 
 def _make_newsletter(title):
     return Newsletter.objects.create(title=title)
@@ -110,8 +111,6 @@ class TestEmailModel(TestCase):
         # Verify a new subscription exists for this user
         self.assertEqual(Subscription.objects.filter(email_address=email).count(), 1)
         
-
-
     def test_unsubscribe(self):
         """
         Verify that a user can be successfully unsubscribed from
@@ -194,9 +193,6 @@ class TestNewsletterIssueModel(TestCase):
         Create a newsletter, newsletter issue and some
         subscriptions to test with.
         """
-        self.use_premailer_default = getattr(settings, 'NOVA_USE_PREMAILER', False)
-        settings.NOVA_USE_PREMAILER = True
-
         # Create some newsletters
         self.newsletter1 = _make_newsletter("Test Newsletter 1")
         self.newsletter2 = _make_newsletter("Test Newsletter 2")
@@ -244,12 +240,6 @@ class TestNewsletterIssueModel(TestCase):
         self.exclude_email.save()
         Subscription.objects.create(email_address=self.exclude_email, newsletter=self.newsletter2)
 
-    def tearDown(self):
-        """
-        Restore settings defaults.
-        """
-        settings.NOVA_USE_PREMAILER = self.use_premailer_default
-
     def test_default_template(self):
         """
         Verify that on save a NewsletterIssue is assigned
@@ -281,6 +271,68 @@ class TestNewsletterIssueModel(TestCase):
         self.assertEqual(new_template,
             NewsletterIssue.objects.get(pk=issue.pk).template)
 
+    def test_premailer(self):
+        """
+        If the premailer script is enabled, test the premailer method
+        which calls out to the external script.
+        """
+        if getattr(settings, 'NOVA_USE_PREMAILER', False):
+            template = """\
+            <html>
+            <head>
+            <style>
+            .foo {
+                color: red;
+            }
+            </style>
+            </head>
+            <body>
+            <p class="foo">Some Text</p>
+            </body>
+            </html>"""
+
+            expected_html = """\
+            <html>
+            <head>
+            
+            </head>
+            <body>
+            <p class="foo" style="color: red;">Some Text</p>
+            </body>
+            </html>"""
+
+            # Ensure the expected html has been returned from premailer
+            premailed_html = self.newsletter_issue1.premailer(template)
+            self.assertEqual(premailed_html, expected_html)
+
+            # Ensure that the expected plaintext has been returned from premailer
+            premailed_plaintext = self.newsletter_issue1.premailer(template, plaintext=True)
+            self.assertTrue('Some Text' in premailed_plaintext)
+            self.assertTrue('html' not in premailed_plaintext)
+        else:
+            print '\nNOVA_USE_PREMAILER is False or undefined. Skipping...'
+
+    def test_premail(self):
+        """
+        Ensure that the premail method calls the expected helper
+        functions on the newsletter template. The helper functions themselves
+        are to be tested separately.
+        """
+        with patch('nova.models.canonicalize_links') as mock_canonicalize_links:
+            self.newsletter_issue1.premail(track=False)
+            self.assertTrue(mock_canonicalize_links.called)
+
+        with patch('nova.models.track_document') as mock_track_document:
+            self.newsletter_issue1.premail(canonicalize=False)
+            self.assertTrue(mock_track_document.called)
+
+        if getattr(settings, 'NOVA_USE_PREMAILER', False):
+            with patch('nova.models.NewsletterIssue.premailer') as mock_premailer:
+                html, plaintext = self.newsletter_issue1.premail()
+                self.assertTrue(mock_premailer.called)
+                self.assertTrue(html is not None)
+                self.assertTrue(plaintext is not None)
+
     def test_render(self):
         """
         Verify that the NewsletterIssue template is correctly
@@ -304,8 +356,7 @@ class TestNewsletterIssueModel(TestCase):
         Date: {date:%Y-%m-%d}
         Email: {email}""".format(issue_id=issue.pk, date=datetime.now(), email=email)
 
-        rendered_template = issue.render(extra_context={
-            'email': email})
+        rendered_template = issue.render(template=template, extra_context={'email': email})
         self.assertEqual(rendered_template, expected_template)
 
     def test_nova_context_processors(self):
@@ -328,84 +379,6 @@ class TestNewsletterIssueModel(TestCase):
                 del settings.NOVA_CONTEXT_PROCESSORS
             else:
                 settings.NOVA_CONTEXT_PROCESSORS = old_settings
-
-    def test_link_tracking(self):
-        """
-        Verify link tracking works as expected.
-        """
-        template = """\
-        <html>
-            <head>
-                <style>
-                    a {
-                        font-weight: bold;
-                        color: pink;
-                    }
-                </style>
-            </head>
-            <body>
-                <a href="http://www.example.com/">Google</a>
-                <a href="http://www.darkhorse.com/?hai=true">Dark Horse</a>
-                <a href="http://digital.darkhorse.com/">Digital Dark Horse</a>
-                <a href="http://www.tfaw.com/">TFAW</a>
-            </body>
-        </html>
-        """
-        
-        issue = NewsletterIssue()
-        issue.subject = 'Test'
-        issue.template = template
-        issue.newsletter = self.newsletter1
-        issue.tracking_campaign = 'DHD'
-        issue.tracking_domain = 'darkhorse.com'
-        issue.save()
-
-        track1 = """<a href="http://www.darkhorse.com/?hai=true&amp;utm_campaign=DHD&amp;utm_medium=email&amp;utm_source=newsletter-{pk}&amp;utm_term=newsletter-{pk}-link-2-Dark+Horse" class="tracked">Dark Horse</a>""".format(pk=issue.newsletter.pk)
-
-        track2 = """<a href="http://digital.darkhorse.com/?utm_campaign=DHD&amp;utm_medium=email&amp;utm_source=newsletter-{pk}&amp;utm_term=newsletter-{pk}-link-3-Digital+Dark+Horse" class="tracked">Digital Dark Horse</a>""".format(pk=issue.newsletter.pk)
-        
-        rendered_template = issue.render(premail=False)
-
-        # Assert both darkhorse.com links were tracked
-        self.assertTrue(track1 in rendered_template)
-        self.assertTrue(track2 in rendered_template)
-
-        # Assert that only two links were tracked
-        self.assertEqual(rendered_template.count('tracked'), 2)
-
-    def test_premail(self):
-        """
-        Verify that the premail method on NewsletterItems correctly formats the given html
-        """
-        pre_html = """\
-        <html>
-        <head>
-        <style>
-        .foo {
-            color: red;
-        }
-        </style>
-        </head>
-        <body>
-        <p class="foo">Some Text</p>
-        </body>
-        </html>
-        """
-
-        expected_html = """\
-        <html>
-        <head>
-        
-        </head>
-        <body>
-        <p class="foo" style="color: red;">Some Text</p>
-        </body>
-        </html>
-        """
-
-        issue = NewsletterIssue(template=pre_html)
-
-        self.assertEqual(expected_html, issue.premail())
     
     def test_send_test(self):
         """
@@ -424,7 +397,6 @@ class TestNewsletterIssueModel(TestCase):
         for message in mail.outbox:
             self.assertTrue(message.to[0] in approvers)
             self.assertEqual(message.subject, self.newsletter_issue1.subject)
-            self.assertEqual(message.body, self.plaintext)
             self.assertEqual(message.alternatives[0][1], 'text/html')
             self.assertEqual(message.alternatives[0][0], self.newsletter_issue1.template)
 
@@ -443,7 +415,6 @@ class TestNewsletterIssueModel(TestCase):
             self.assertNotEqual(self.unconfirmed_email.email, message.to[0])
             self.assertNotEqual(self.exclude_email.email, message.to[0])
             self.assertEqual(message.subject, self.newsletter_issue1.subject)
-            self.assertEqual(message.body, self.plaintext)
             self.assertEqual(message.alternatives[0][1], 'text/html')
             self.assertEqual(message.alternatives[0][0], self.newsletter_issue1.template)
 
@@ -473,7 +444,6 @@ class TestNewsletterIssueModel(TestCase):
             self.assertNotEqual(self.unconfirmed_email.email, message.to[0])
             self.assertNotEqual(self.exclude_email.email, message.to[0])
             self.assertEqual(message.subject, self.newsletter_issue1.subject)
-            self.assertEqual(message.body, self.plaintext)
             self.assertEqual(message.alternatives[0][1], 'text/html')
             self.assertEqual(message.alternatives[0][0], self.newsletter_issue1.template)
 
@@ -745,3 +715,43 @@ class TestNovaHelpers(TestCase):
 
         self.assertNotEqual(get_anchor_text(soup.find('a')), anchor_text)
         self.assertEqual(get_anchor_text(soup.find('a')), 'html')
+
+    def test_track_document(self):
+        """
+        Ensure that the track_document helper method
+        works as expected.
+        """
+        domain = 'example.com'
+        campaign = 'test-campaign'
+        source = 'test-source'
+        medium = 'test-medium'
+
+        template = """\
+        <html>
+            <head>
+                <title>Test Link Tracking</title>
+            </head>
+            <body>
+                <a href="http://www.google.com/">Google</a>
+                <a href="http://www.example.com/?param=true">Example 1</a>
+                <a href="http://subdomain.example.com/">Example 2</a>
+                <a href="http://www.bing.com/">Bing</a>
+            </body>
+        </html>
+        """
+
+        # Track this template
+        tracked_template = track_document(html=template, domain=domain,
+                campaign=campaign, source=source, medium=medium)
+
+        # Expected results
+        track1 = """<a href="http://www.example.com/?param=true&amp;utm_campaign={campaign}&amp;utm_medium={medium}&amp;utm_source={source}&amp;utm_term={term}" class="tracked">Example 1</a>""".format(campaign=campaign, source=source, medium=medium, term='%s-%s-%s' % (source, 'link-2', 'Example+1',))
+        track2 = """<a href="http://subdomain.example.com/?utm_campaign={campaign}&amp;utm_medium={medium}&amp;utm_source={source}&amp;utm_term={term}" class="tracked">Example 2</a>""".format(campaign=campaign, source=source, medium=medium, term='%s-%s-%s' % (source, 'link-3', 'Example+2',))
+
+        # Assert both example.com links were tracked
+        self.assertTrue(track1 in tracked_template)
+        self.assertTrue(track2 in tracked_template)
+
+        # Assert that only two links were tracked
+        self.assertEqual(tracked_template.count('tracked'), 2)
+
