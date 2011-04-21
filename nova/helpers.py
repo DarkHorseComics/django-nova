@@ -17,7 +17,7 @@ class PremailerException(Exception):
     Exception thrown when premailer command finishes with a return code other than 0
     """
 
-def get_raw_template(name, dirs=None):
+def get_raw_template(name):
     """
     Uses Django's template loaders to find and return the
     raw template source. 
@@ -54,7 +54,6 @@ def canonicalize_links(html, base_url=None):
     Parse an html string and replace any relative links with fully qualified links.
     :param html: The document to canonicalize.
     :param base_url: The (optional) base url to canonicalize to.
-    :todo: Add protocol to links missing one.
     """
     if base_url is None:
         base_url = "http://"+Site.objects.get_current().domain
@@ -64,6 +63,11 @@ def canonicalize_links(html, base_url=None):
 
     for link in relative_links:
         link['href'] = base_url + link['href']
+
+    protocol_links = soup.findAll(href=re.compile('^www'))
+
+    for link in protocol_links:
+        link['href'] = 'http://%s' % (link['href'],)
 
     return unicode(soup)
 
@@ -79,14 +83,11 @@ def get_anchor_text(anchor):
         # Does this anchor contain child nodes?
         children = anchor.contents
         if len(children) > 0:
-            # Check the first child to see if it is an image tag
-            first_child = children[0]
-            # :todo: Fix 'NavigableString' object has no attribute 'name'
-            if first_child.name == 'img':
-
-                if first_child.has_key('alt'):
+            # Check to see if this anchor contains an image
+            if anchor.img:
+                if anchor.img.has_key('alt'):
                     # Get the image alt text
-                    alttext = first_child['alt']
+                    alttext = anchor.img['alt']
                 else:
                     # If the alt attribute is empty, return default
                     alttext = 'image'
@@ -132,7 +133,7 @@ def track_document(html, domain=None, campaign=None, source='newsletter', medium
             parsed_url = urlparse(url)
 
             # Only track links from specific domains
-            # :todo: Make this comparison less stupid
+            # :todo: Make this comparison smarter
             if domain in parsed_url.netloc:
                 # Append appropriate query prefix to url
                 if not parsed_url.query:

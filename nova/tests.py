@@ -12,7 +12,7 @@ from django.template import Template, Context
 from django.template.loader import render_to_string
 
 from nova.models import EmailAddress, Subscription, Newsletter, NewsletterIssue, send_multipart_mail
-from nova.helpers import get_anchor_text
+from nova.helpers import canonicalize_links, get_anchor_text
 
 from BeautifulSoup import BeautifulSoup
 
@@ -267,7 +267,7 @@ class TestNewsletterIssueModel(TestCase):
         issue.newsletter = self.newsletter1
         issue.save()
 
-        self.assertTrue(issue.template is not None)
+        self.assertTrue(issue.template not in ('', None,))
 
         context = Context({})
         expected_template = render_to_string(template_name, context)
@@ -328,33 +328,6 @@ class TestNewsletterIssueModel(TestCase):
                 del settings.NOVA_CONTEXT_PROCESSORS
             else:
                 settings.NOVA_CONTEXT_PROCESSORS = old_settings
-
-    def test_link_canonicalization(self):
-        """
-        Ensure that links are canonicalized correctly.
-        """
-        template = """\
-        <a href="/">Home</a>
-        <a href="/store">Store</a>
-        <a href="http://www.google.com/">Fully Qualified</a>"""
-
-        issue = NewsletterIssue()
-        issue.subject = 'Test'
-        issue.template = template
-        issue.newsletter = self.newsletter1
-        issue.save()
-
-        rendered_template = issue.render(track=False, premail=False)
-
-        canon1 = '<a href="http://example.com/">Home</a>'
-        canon2 = '<a href="http://example.com/store">Store</a>'
-
-        self.assertTrue(canon1 in rendered_template)
-        self.assertTrue(canon2 in rendered_template)
-
-        ignore1 = '<a href="http://www.google.com/">Fully Qualified</a>'
-
-        self.assertTrue(ignore1 in rendered_template)
 
     def test_link_tracking(self):
         """
@@ -703,7 +676,39 @@ class TestNovaHelpers(TestCase):
     """
     Test Nova helper functions.
     """
+    def test_canonicalize_links(self):
+        """
+        Ensure that links are canonicalized correctly.
+        """
+        template = """\
+        <a href="/">Home</a>
+        <a href="/store/?page=2">Store</a>
+        <a href="www.example.com/store/new/">New</a>
+        <a href="subdomain.example.com/">Subdomain</a>
+        <a href="http://www.google.com/">Fully Qualified</a>"""
+
+        rendered_template = canonicalize_links(template, 'http://www.example.com')
+
+        canon1 = '<a href="http://www.example.com/">Home</a>'
+        canon2 = '<a href="http://www.example.com/store/?page=2">Store</a>'
+        canon3 = '<a href="http://www.example.com/store/new/">New</a>'
+
+        self.assertTrue(canon1 in rendered_template)
+        self.assertTrue(canon2 in rendered_template)
+        self.assertTrue(canon3 in rendered_template)
+
+        ignore1 = '<a href="http://www.google.com/">Fully Qualified</a>'
+        ignore2 = '<a href="subdomain.example.com/">Subdomain</a>'
+
+        self.assertTrue(ignore1 in rendered_template)
+        self.assertTrue(ignore2 in rendered_template)
+
     def test_get_anchor_text(self):
+        """
+        Ensure that get_anchor_text returns the expected
+        string and doesn't choke when it doesn't find the elements
+        it expects to.
+        """
         # Test normal anchor
         anchor_text = 'test anchor'
         anchor = '<html><body><a href="http://www.example.com/">{anchor_text}</a></body></html>'.format(anchor_text=anchor_text)
@@ -725,6 +730,13 @@ class TestNovaHelpers(TestCase):
 
         self.assertNotEqual(get_anchor_text(soup.find('a')), anchor_text)
         self.assertEqual(get_anchor_text(soup.find('a')), 'image')
+
+        # Text anchor with an image that has an alt attribute and is not the first child
+        anchor_text = 'test anchor image linebreak'
+        anchor = '<html><body><a href="http://www.example.com/">\n<span>blank</span><img src="blank" alt="{anchor_text}" /></a></body></html>'.format(anchor_text=anchor_text)
+        soup = BeautifulSoup(anchor)
+
+        self.assertEqual(get_anchor_text(soup.find('a')), anchor_text)
 
         # Test anchor with child elements that are not images
         anchor_text = 'anchor text'
