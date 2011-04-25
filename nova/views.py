@@ -14,6 +14,7 @@ from django.views.generic.simple import redirect_to
 from django.contrib.sites.models import RequestSite
 
 from nova.models import EmailAddress, Subscription, Newsletter, NewsletterIssue, _sanitize_email, _email_is_valid
+from nova.forms import SubscriptionForm
 
 def _send_message(to_addr, subject_template, body_template, context_vars):
     """
@@ -25,6 +26,26 @@ def _send_message(to_addr, subject_template, body_template, context_vars):
     subject = loader.get_template(subject_template).render(context).strip()
     body = loader.get_template(body_template).render(context)
     send_mail(subject, body, settings.NOVA_FROM_EMAIL, (to_addr,))
+
+def update_subscriptions(request, template_name='nova/subscribe.html', redirect_url=None, extra_context=None):
+    """
+    View that allows existing users (or even new users) to modify their subscriptions
+    """
+    if request.method == "POST":
+        form = SubscriptionForm(data=request.POST, user=request.user)
+        if form.is_valid():
+            form.save()
+            return redirect_to(request, reverse(redirect_url))
+    else:
+        form = SubscriptionForm(user=request.user)
+
+    context = {
+        'form': form
+    }
+    if extra_context:
+        context.update(extra_context)
+    return render_to_response(template_name, context, RequestContext(request))
+    
 
 def subscribe(request):
     """

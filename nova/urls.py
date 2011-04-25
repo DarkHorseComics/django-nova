@@ -7,6 +7,7 @@ urlpatterns = patterns('nova.views',
     (r'unsubscribe/(?P<token>\w+)/', 'unsubscribe'),
     (r'unsubscribe/', 'unsubscribe'),
     (r'subscribe/', 'subscribe'),
+    (r'update_subscriptions/', 'update_subscriptions'),
     (r'acknowledge/', 'acknowledge'),
     (r'confirm/(?P<token>\w+)/', 'confirm'),
     (r'preview/(?P<newsletter_issue_id>\d+)/', 'preview')

@@ -78,7 +78,10 @@ class EmailAddress(models.Model):
         """
         Set confirmed_at when this instance is confirmed.
         """
-        self.email = _sanitize_email(self.email)
+        if self.user:
+            self.email = _sanitize_email(self.user.email)
+        else:
+            self.email = _sanitize_email(self.email)
 
         if self.confirmed:
             if self.confirmed_at is None:

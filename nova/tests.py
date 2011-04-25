@@ -2,16 +2,20 @@
 Basic unit and functional tests for newsletter signups
 """
 from datetime import datetime
+from BeautifulSoup import BeautifulSoup
 
 from django.conf import settings
 from django.test import TestCase
+from django.utils.datastructures import MultiValueDict
 from django.core import mail, management
 from django.core.urlresolvers import reverse
 from django.conf import settings
 from django.template import Template, Context
 from django.template.loader import render_to_string
+from django.contrib.auth.models import User
 
 from nova.models import EmailAddress, Subscription, Newsletter, NewsletterIssue, send_multipart_mail
+from nova.forms import SubscriptionForm
 from nova.helpers import canonicalize_links, get_anchor_text, track_document
 
 from BeautifulSoup import BeautifulSoup
@@ -755,3 +759,109 @@ class TestNovaHelpers(TestCase):
         # Assert that only two links were tracked
         self.assertEqual(tracked_template.count('tracked'), 2)
 
+class TestSubscriptionForm(TestCase):
+    """
+    Tests for SubscriptionForm
+    """
+
+    def setUp(self):
+        """
+        Create a few newsletters to work with
+        """
+        for i in range(3):
+            Newsletter.objects.create(title="test {0}".format(i), active=True)
+        self.newsletter1 = Newsletter.objects.all()[0]
+
+        self.user = User.objects.create_user('tester', 'tester@testing.darkhorse.com', 'test')
+
+    def test_new_email(self):
+        """
+        Make sure saving the form creates a new user
+        """
+        test_email = 'new_user@testing.darkhorse.com'
+        data = {
+            'email_address': test_email,
+            'newsletters': [self.newsletter1.id]
+        }
+        form = SubscriptionForm(data=data)
+        self.assertTrue(form.is_valid())
+
+        self.assertEqual(0, EmailAddress.objects.count())
+        form.save()
+        self.assertEqual(1, EmailAddress.objects.count())
+        self.assertEqual(test_email, EmailAddress.objects.get().email)
+
+    def test_old_user(self):
+        """
+        Make sure specifying an existing user modifies that user's subscriptions
+        """
+        data = {
+            'email_address': self.user.email,
+            'newsletters': [self.newsletter1.id]
+        }
+        form = SubscriptionForm(data=data, user=self.user)
+        self.assertTrue(form.is_valid())
+
+        self.assertEqual(0, EmailAddress.objects.count())
+        form.save()
+        self.assertEqual(1, EmailAddress.objects.count())
+        self.assertEqual(self.user, EmailAddress.objects.get().user)
+        self.assertEqual(self.user.email, EmailAddress.objects.get().email)
+
+    def test_unsubscribe(self):
+        """
+        Make sure removing previous subscriptions for a user works
+        """
+        email = EmailAddress.objects.create(user=self.user)
+        email.subscribe(self.newsletter1)
+        data = {
+            'email_address': self.user.email
+        }
+        form = SubscriptionForm(data=data, user=self.user)
+        self.assertTrue(form.is_valid())
+
+        self.assertEqual(1, email.subscriptions.count())
+        form.save()
+        self.assertEqual(0, email.subscriptions.count())
+
+    def test_multi_submit(self):
+        """
+        Test submitting multiple newsletter subscription changes at once
+        """
+        email = EmailAddress.objects.create(user=self.user)
+        data = {
+            'email_address': self.user.email,
+            'newsletters': [n.id for n in Newsletter.objects.all()]
+        }
+        form = SubscriptionForm(data=data, user=self.user)
+        self.assertTrue(form.is_valid(), form.errors)
+
+        self.assertEqual(0, email.subscriptions.count())
+        form.save()
+        self.assertEqual(3, email.subscriptions.count())
+
+    def test_inactive_newsletters(self):
+        """
+        Make sure inactive newsletters don't get rendered
+        """
+        inactive_newsletter = self.newsletter1
+        inactive_newsletter.active = False
+        inactive_newsletter.save()
+
+        form = SubscriptionForm(user=self.user)
+        soup = BeautifulSoup(form.as_ul())
+        self.assertEqual(2, len(soup.findAll('input', attrs={'name': 'newsletters'})),
+                         soup)
+        self.assertEqual(0, len(soup.findAll('input', attrs={'name': 'newsletters', 'value': inactive_newsletter.id})))
+
+    def test_email_sanitization(self):
+        """
+        Make sure email addresses get sanitized
+        """
+        data = {
+            'email_address': '  UnSanitary@testing.DarkHorse.COM   ',
+            'newsletters': [self.newsletter1.id]
+        }
+        form = SubscriptionForm(data=data)
+        self.assertTrue(form.is_valid())
+        self.assertEqual('unsanitary@testing.darkhorse.com', form.cleaned_data['email_address'])
