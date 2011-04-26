@@ -865,3 +865,14 @@ class TestSubscriptionForm(TestCase):
         form = SubscriptionForm(data=data)
         self.assertTrue(form.is_valid())
         self.assertEqual('unsanitary@testing.darkhorse.com', form.cleaned_data['email_address'])
+
+    def test_initial_newsletters(self):
+        """
+        Make sure a new form renders with the correct newsletters checked
+        """
+        email = EmailAddress.objects.create(user=self.user)
+        email.subscribe(self.newsletter1)
+        form = SubscriptionForm(user=self.user)
+        soup = BeautifulSoup(form.as_ul())
+        self.assertEqual(3, len(soup.findAll('input', type='checkbox')), soup)
+        self.assertEqual(1, len(soup.findAll('input', checked=True)), soup)

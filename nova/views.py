@@ -35,7 +35,7 @@ def update_subscriptions(request, template_name='nova/subscribe.html', redirect_
         form = SubscriptionForm(data=request.POST, user=request.user)
         if form.is_valid():
             form.save()
-            return redirect_to(request, reverse(redirect_url))
+            return redirect_to(request, redirect_url)
     else:
         form = SubscriptionForm(user=request.user)
 

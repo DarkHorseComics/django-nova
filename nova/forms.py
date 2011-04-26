@@ -20,8 +20,11 @@ class SubscriptionForm(forms.Form):
 
         if user and user.is_authenticated():
             self.user = user
-            self.fields['email_address'].initial = user.email
+            self.fields['email_address'].initial = self.user.email
             self.fields['email_address'].widget = forms.HiddenInput()
+
+            newsletters = self.fields['newsletters'].queryset
+            self.fields['newsletters'].initial = [n.id for n in newsletters.filter(subscription__email_address__user=self.user)]
         else:
             self.user = None
 
