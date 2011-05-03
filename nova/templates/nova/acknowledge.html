@@ -1,17 +1,14 @@
-<!DOCTYPE html>
-<html>
-    <head>
-        <title>Thank you!</title>
-    </head>
-    <body>
-        <h1>Thank you!</h1>
-        <p>
-            We will be sending you a confirmation email to the following 
-            address in a few minutes:
-        </p>
-        <blockquote><tt>{{ email }}</tt></blockquote>
-        <p>
-            Please follow the link in that message to activate your subscription.
-        </p>
-    </body>
-</html>
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block page_title %}
+    {% trans "Confirm Subscription" %}
+{% endblock %}
+
+{% block content %}
+    <h2>{% trans "Confirm Subscription" %}</h2>
+    <p>{% trans "Thank you! In a few minutes we'll be sending you a confirmation email to the address below:" %}</p>
+    <blockquote class="nova-email">{{ email_address.email }}</blockquote>
+    <p>{% trans "Please follow the link in that message to activate your subscription." %}</p>
+{% endblock %}
+

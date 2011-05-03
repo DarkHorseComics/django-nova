@@ -22,7 +22,7 @@ from BeautifulSoup import BeautifulSoup
 from mock import patch
 
 def _make_newsletter(title):
-    return Newsletter.objects.create(title=title)
+    return Newsletter.objects.create(title=title, active=True)
 
 def _make_email(email):
     return EmailAddress.objects.create_with_random_token(email)
@@ -486,7 +486,7 @@ class TestSignupViews(TestCase):
 
     def _do_subscribe(self, email, newsletters):
         subscribe_url = reverse('nova.views.subscribe')
-        params = {'email': email,
+        params = {'email_address': email,
                   'newsletters': newsletters}
 
         return self.client.post(subscribe_url, params, follow=True)
@@ -530,7 +530,7 @@ class TestSignupViews(TestCase):
         email_address = EmailAddress.objects.get(pk=email_address.pk)
         self.assertTrue(email_address.confirmed)
 
-    def test_unsubscribe(self):
+    def test_unsubscribe_with_token(self):
         """
         Test that a user can unsubscribe using a token.
         """
@@ -556,20 +556,21 @@ class TestSignupViews(TestCase):
 
         # Test unsubscribing with a token
         email_address = EmailAddress.objects.get(email=email)
-        unsubscribe_url = reverse('nova.views.unsubscribe', args=(email_address.token,))
+        unsubscribe_url = reverse('nova.views.unsubscribe_with_token', args=(email_address.token,))
         response = self.client.get(unsubscribe_url)
 
         self.assertEqual(unsubscribe_url, email_address.get_unsubscribe_url())
 
         # Ensure this user was successfully unsubscribed
-        response = self.client.post(unsubscribe_url)
+        response = self.client.get(unsubscribe_url, follow=True)
+        self.assertTrue(email in response.content)
         self.assertEqual(Subscription.objects.filter(email_address=email_address).count(), 0)
 
         # Make sure other address is still subscribed
         other_email_address = EmailAddress.objects.get(email=other_email)
         self.assertEqual(Subscription.objects.filter(email_address=other_email_address, active=True).count(), 2)
 
-    def test_unsubscribe_email(self):
+    def test_unsubscribe(self):
         """
         Test that a user can unsubscribe using only their email address.
         """
@@ -599,7 +600,8 @@ class TestSignupViews(TestCase):
         response = self.client.get(unsubscribe_url)
 
         # Test unsubscribe
-        response = self.client.post(unsubscribe_url, {'email': email_address.email})
+        response = self.client.post(unsubscribe_url, {'email_address': email_address.email}, follow=True)
+        self.assertTrue(email in response.content)
         self.assertEqual(Subscription.objects.filter(email_address=email_address).count(), 0)
 
         # Make sure other address is still subscribed

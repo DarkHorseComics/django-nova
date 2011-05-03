@@ -1,26 +1,21 @@
-<!DOCTYPE html>
-<html>
-    <head>
-        <title>Unsubscribe</title>
-    </head>
-    <body>
-        <h1>Unsubscribe</h1>
-        {% if token %}
-            <p>If you'd like to unsubscribe from future updates, please click the "unsubscribe" button below.</p>
-            <form method="POST" action="{% url nova.views.unsubscribe token=token %}">
-                {% csrf_token %}
-                <input type="submit" class="button" value="Unsubscribe" />
-            </form>
-        {% else %}
-            <p>
-                If you'd like to unsubscribe from future updates, please enter the email address you subscribed with below
-                and click the "unsubscribe" button.
-            </p>
-            <form method="POST" action="{% url nova.views.unsubscribe token=token %}">
-                {% csrf_token %}
-                <input type="email" name="email" value="" placeholder="Your email" />
-                <input type="submit" class="button" value="Unsubscribe" />
-            </form>
-        {% endif %}
-    </body>
-</html>
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block page_title %}
+    {% trans "Unsubscribe" %}
+{% endblock %}
+
+{% block content %}
+    <h2>{% trans "Unsubscribe" %}</h2>
+    <form method="POST" action="{% url nova.views.unsubscribe %}">
+        {% csrf_token %}
+        <fieldset>
+            <ol>
+                {{ form.as_ul }}
+                <li>
+                    <input class="button blue" type="submit" value="{% trans 'Unsubscribe' %}" />
+                </li>
+            </ol>
+        </fieldset>
+    </form>
+{% endblock %}

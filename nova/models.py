@@ -87,19 +87,16 @@ class EmailAddress(models.Model):
             if self.confirmed_at is None:
                 self.confirmed_at = datetime.now()        
             try:
-                #set up a user account if it exists
+                # Pair with an existing user account
                 self.user = User.objects.get(email=self.email)
             except User.DoesNotExist:
-                #create one if it doesn't
-                #TODO: provide notification to these users, letting them know
-                #that they need to reset their password
+                # Create a new user account if no match is found
                 username = self._create_unique_username_from_email(self.email)
                 self.user = User.objects.create_user(username, self.email)
                 self.user.set_unusable_password()
                 self.user.save()
-            
             except User.MultipleObjectsReturned:
-                #multiple users with the same email!
+                # Uh oh! Multiple users with the same email!
                 self.user = User.objects.filter(email=self.email)[0]
                 
         super(EmailAddress, self).save(*args, **kwargs)
@@ -116,7 +113,7 @@ class EmailAddress(models.Model):
         Returns the unique unsubscribe URL for this email address,
         suitable for use in follow-up emails.
         """
-        return reverse('nova.views.unsubscribe', args=(self.token,))
+        return reverse('nova.views.unsubscribe_with_token', args=(self.token,))
 
     def subscribe(self, newsletter):
         """

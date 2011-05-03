@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block page_title %}
+    {% trans "Unsubscribe" %}
+{% endblock %}
+
+{% block content %}
+    <h2>{% trans "Unsubscribe" %}</h2>
+    <p>{% trans "Your email address was successfully removed from our mailing list:" %}</p>
+    <blockquote class="nova-email">
+        <del>{{ email_address.email }}</del>
+    </blockquote>
+{% endblock %}
+

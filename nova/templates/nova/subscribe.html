@@ -1,20 +1,24 @@
-<!DOCTYPE html>
-<html>
-    <head>
-        <title>Newsletter Signup</title>
-    </head>
-    <body>
-        <h1>Newsletter Signup</h1>
-        <form method="POST" action="{% url nova.views.subscribe %}">
-            {% csrf_token %}
-            <input name="email" type="text" placeholder="Enter your email address"/>
-            {% for newsletter in newsletters %}
-                <label>
-                    <input name="newsletters" type="checkbox" value="{{ n.pk }}" />
-                    {{ n.title }}
-                </label>
-            {% endfor %}
-            <input type="submit" class="button" value="Subscribe"/>
-        </form>
-    </body>
-</html>
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block page_title %}
+    {% trans "Subscribe" %}
+{% endblock %}
+
+{% block content %}
+    <h2>{% trans "Subscribe" %}</h2>
+    <form action="{% url nova.views.subscribe %}" method="POST">
+        {% csrf_token %}
+        <fieldset>
+            <ol>
+                {{ form.as_ul }}
+                <li>
+                    <input class="button blue" type="submit" value="{% trans 'Submit' %}" />
+                </li>
+                <li>
+                    <a href="{% url nova.views.unsubscribe %}">{% trans "Cancel an existing subscription" %}</a>
+                </li>
+            </ol>
+        </fieldset>
+    </form>
+{% endblock %}
