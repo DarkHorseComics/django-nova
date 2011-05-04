@@ -10,5 +10,7 @@ Please use the following link to confirm your subscription:
 http://{{ site.domain }}{{ email_address.get_confirm_url }}
 
 If you did not sign up for this subscription or do not wish to receive
-further messages, please do nothing further. We will not send you any
-additional email unless you take action by following the link above.
+further messages, you should not need to take any further action. However,
+to permanently remove your email from our mailing list you can follow the link below:
+
+http://{{ site.domain }}{{ email_address.get_unsubscribe_url }}
