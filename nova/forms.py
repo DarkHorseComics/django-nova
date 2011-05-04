@@ -11,7 +11,7 @@ class NovaSubscribeForm(forms.Form):
     email_address = forms.EmailField(label=_('Email Address'),
         widget=EmailInput(attrs={'placeholder': _('Email Address')}))
     newsletters = forms.ModelMultipleChoiceField(label=_('Newsletters'),
-            queryset=Newsletter.objects.filter(active=True),
+            queryset=Newsletter.objects.filter(active=True).order_by('title'),
             widget=forms.CheckboxSelectMultiple)
 
     def clean_email_address(self):
