@@ -397,10 +397,12 @@ class TestNewsletterIssueModel(TestCase):
         self.newsletter_issue1.send_test()
 
         self.assertEqual(len(mail.outbox), 4)
+
+        expected_subject = "FOR APPROVERS: %s" % self.newsletter_issue1.subject
         
         for message in mail.outbox:
             self.assertTrue(message.to[0] in approvers)
-            self.assertEqual(message.subject, self.newsletter_issue1.subject)
+            self.assertEqual(message.subject, expected_subject)
             self.assertEqual(message.alternatives[0][1], 'text/html')
             self.assertEqual(message.alternatives[0][0], self.newsletter_issue1.template)
 

@@ -341,10 +341,11 @@ class NewsletterIssue(models.Model):
 
         return rendered_template
 
-    def send(self, email_addresses=None, extra_headers=None, mark_as_sent=True):
+    def send(self, subject=None, email_addresses=None, extra_headers=None, mark_as_sent=True):
         """
         Sends this issue to subscribers of this newsletter. 
 
+        :param subject: An optional subject to be used for the newsletter. Defaults to self.subject.
         :param email_addresses: A list of EmailAddress objects to be used as the recipient list.
         :param extra_headers: Any extra mail headers to be used.
         :param mark_as_sent: Whether to record this issue as sent.
@@ -353,6 +354,9 @@ class NewsletterIssue(models.Model):
         for every recipient of a newsletter. Investigate any options to make this
         method more performant.
         """
+        if not subject:
+            subject = self.subject
+
         headers = {
             'Reply-To': self.newsletter.reply_to_email,        
         }
@@ -381,7 +385,7 @@ class NewsletterIssue(models.Model):
                         extra_context={'email': send_to})
 
                 # Send multipart message
-                send_multipart_mail(self.subject,
+                send_multipart_mail(subject,
                         txt_body=rendered_plaintext_template,
                         html_body=rendered_html_template,
                         from_email=self.newsletter.from_email,
@@ -402,7 +406,8 @@ class NewsletterIssue(models.Model):
 
             email_addresses.append(send_to)
 
-        self.send(email_addresses, mark_as_sent=False)
+        self.send(subject="FOR APPROVERS: %s" % (self.subject,),
+                email_addresses=email_addresses, mark_as_sent=False)
 
     def __unicode__(self):
         """
