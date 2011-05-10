@@ -302,7 +302,7 @@ class NewsletterIssue(models.Model):
         # Track links
         if track:
             template = track_document(template, domain=self.tracking_domain,
-                    campaign=self.tracking_campaign, source='newsletter-%s' % (self.newsletter.pk,))
+                    campaign=self.tracking_campaign, source='newsletter-%s-issue-%s' % (self.newsletter.pk, self.pk,))
 
         # Run premailer
         if getattr(settings, 'NOVA_USE_PREMAILER', False):
