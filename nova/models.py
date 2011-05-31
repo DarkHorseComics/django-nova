@@ -22,6 +22,7 @@ from django.core.mail import send_mail, EmailMessage
 from django.core.validators import email_re
 from django.utils.translation import ugettext_lazy as _
 from django.template import Context, Template
+from django.utils.encoding import smart_str
 
 from nova.helpers import track_document, canonicalize_links, send_multipart_mail, PremailerException, get_raw_template
 
@@ -269,7 +270,8 @@ class NewsletterIssue(models.Model):
 
         # Pipe arguments to premailer
         p = Popen(args, stdin=PIPE, stdout=PIPE, stderr=PIPE)
-        premailed, err = p.communicate(input=str(template))
+        # Use smart_str to pass a UTF-8 bytestring to premailer
+        premailed, err = p.communicate(input=smart_str(template))
 
         # Ensure premailer returned a valid response
         if p.returncode != 0:
