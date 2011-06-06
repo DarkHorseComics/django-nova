@@ -174,7 +174,7 @@ def acknowledge_unsubscribe(request, template_name='nova/acknowledge_unsubscribe
     return render_to_response(template_name,
             {'email_address': email_address}, RequestContext(request))
 
-@permission_required('nova.change_newsletterinstance')
+@permission_required('nova.change_newsletterissue')
 def preview(request, newsletter_issue_id):
     """
     Render the specified newsletter issue with a random EmailAddress
