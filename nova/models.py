@@ -253,8 +253,9 @@ class NewsletterIssue(models.Model):
         super(NewsletterIssue, self).save(*args, **kwargs)
 
         if self.template:
-            html_template, _ = self.premail(track=self.track, plaintext=False)
-            self.rendered_template = self.render(template=html_template)
+            html_template, _ = self.premail(track=self.track, plaintext=False,
+                    template=self.render())
+            self.rendered_template = html_template
             super(NewsletterIssue, self).save()
 
     def premailer(self, template, plaintext=False):
@@ -360,7 +361,7 @@ class NewsletterIssue(models.Model):
             subject = self.subject
 
         headers = {
-            'Reply-To': self.newsletter.reply_to_email,        
+            'Reply-To': self.newsletter.reply_to_email, 
         }
 
         # Set any extra headers
@@ -376,16 +377,11 @@ class NewsletterIssue(models.Model):
             self.sent_at = datetime.now()
             self.save()
 
-        # Premail template
-        html_template, plaintext_template = self.premail(track=self.track)
+        # Render and Premail template
+        rendered_html_template, rendered_plaintext_template = self.premail(track=self.track,
+                template=self.render())
 
         for send_to in email_addresses:
-                # Render the newsletter for this subscriber
-                rendered_html_template = self.render(template=html_template,
-                        extra_context={'email': send_to})
-                rendered_plaintext_template = self.render(template=plaintext_template,
-                        extra_context={'email': send_to})
-
                 # Send multipart message
                 send_multipart_mail(subject,
                         txt_body=rendered_plaintext_template,

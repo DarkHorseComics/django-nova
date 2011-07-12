@@ -187,5 +187,6 @@ def preview(request, newsletter_issue_id):
     if subscribers.count() > 0:
         email = subscribers[0]
 
-    premailed_template, _ = issue.premail(track=issue.track, plaintext=False)
-    return HttpResponse(issue.render(template=premailed_template, extra_context={'email':email}))
+    premailed_template, _ = issue.premail(track=issue.track, plaintext=False,
+            template=issue.render())
+    return HttpResponse(premailed_template)
