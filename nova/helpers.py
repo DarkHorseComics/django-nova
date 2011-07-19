@@ -12,6 +12,7 @@ from django.contrib.sites.models import Site
 from django.template import TemplateDoesNotExist
 from django.template.loader import find_template_loader
 from django.core.mail import EmailMultiAlternatives
+from django.utils.encoding import smart_str
 
 from BeautifulSoup import BeautifulSoup
 
@@ -97,7 +98,7 @@ def get_anchor_text(anchor):
             else:
                 alttext = 'html'
 
-    return alttext
+    return smart_str(alttext)
 
 TRACKED_LINK_CLASS = 'tracked'
 
@@ -128,29 +129,35 @@ def track_document(html, domain=None, campaign=None, source='newsletter', medium
 
     # Loop over all anchor tags in the document
     for index, anchor in enumerate(anchors):
-        anchor_css_class = anchor.get('class', '')
-        
-        # Skip links that have already been tracked
-        if TRACKED_LINK_CLASS not in anchor_css_class:
-            url = anchor['href']
-            parsed_url = urlparse(url)
+        try:
+            anchor_css_class = anchor.get('class', '')
+            
+            # Skip links that have already been tracked
+            if TRACKED_LINK_CLASS not in anchor_css_class:
+                url = anchor['href']
+                parsed_url = urlparse(url)
 
-            # Only track links from specific domains
-            # :todo: Make this comparison smarter
-            if domain in parsed_url.netloc:
-                # Append appropriate query prefix to url
-                if not parsed_url.query:
-                    url += '?'
-                else:
-                    url += '&'
+                # Only track links from specific domains
+                # :todo: Make this comparison smarter
+                if domain in parsed_url.netloc:
+                    # Append appropriate query prefix to url
+                    if not parsed_url.query:
+                        url += '?'
+                    else:
+                        url += '&'
 
-                # Generate term that is unique per anchor and include alttext for readability
-                tracking_args['utm_term'] = '{source}-{index}-{alttext}'.format(source=source,
-                        index='link-%s' % (index+1,), alttext=get_anchor_text(anchor))
-                url += urlencode(tracking_args)
+                    # Generate term that is unique per anchor and include alttext for readability
+                    tracking_args['utm_term'] = '{source}-{index}-{alttext}'.format(source=source,
+                            index='link-%s' % (index+1,), alttext=get_anchor_text(anchor))
+                    url += urlencode(tracking_args)
 
-                # Update href and flag anchor as tracked
-                anchor['href'] = url
-                anchor['class'] = string.strip("%s %s" % (anchor_css_class, TRACKED_LINK_CLASS))
+                    # Update href and flag anchor as tracked
+                    anchor['href'] = url
+                    anchor['class'] = string.strip("%s %s" % (anchor_css_class, TRACKED_LINK_CLASS))
+        except UnicodeEncodeError, e:
+            # Encountered a unicode encode error 
+            # while tracking document. Skip anchor and continue.
+            # TODO: Log the error
+            pass
 
     return unicode(soup)
