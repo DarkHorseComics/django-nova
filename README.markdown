@@ -3,8 +3,7 @@ django-nova
 Django Nova is a simple newsletter manager for Django.
 
 Features
-========
-
+--------
 - Double opt-in
 - Multiple newsletters per site
 - Template driven email generation
@@ -13,8 +12,7 @@ Features
 - Full test suite
 
 Requirements
-============
-
+------------
 - Django 1.2
 - BeautifulSoup
 - Mock
@@ -23,12 +21,12 @@ Requirements
 - [Premailer](https://github.com/alexdunae/premailer/) (optional)
 
 Usage
-=====
+-----
 Once installed you can begin creating newsletters and newsletter issues
 (individual mailings) via the Django admin.
 
 Installation
-============
+------------
 Install django-nova in your site-packages directory:
 
     pip install https://bitbucket.org/darkhorse/django-nova
@@ -47,7 +45,7 @@ Include the nova.urls in your urls.py:
     )
 
 Configuration
-=============
+-------------
 Nova has a variety of settings.py variables that you can use to change
 the default behavior.
 
@@ -61,13 +59,13 @@ the default behavior.
     NOVA_CONTEXT_PROCESSORS = ('foo.bar.def',)
 
 Template Integration
-====================
+--------------------
 Default newsletter templates can be added to your project's `template` folder and
 referenced when adding or updating a newsletter object in the Django admin. These
 tempaltes are loaded using any registered template loaders.
 
 Contributing
-============
+------------
 Please feel free to fork the repository and create a pull request to have your
 changes merged back in.
 
