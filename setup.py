@@ -4,7 +4,7 @@ setup(
     name='django-nova',
     version='0.1.0',
     description='Simple newsletters for Django sites.',
-    author='Dark Horse Comics'
+    author='Dark Horse Comics',
     url='http://bitbucket.org/darkhorse/django-nova',
     package_dir={'nova': 'nova'},
     include_package_data=True,
