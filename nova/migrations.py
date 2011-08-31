@@ -2,7 +2,7 @@ from django.conf import settings
 from django.db import connection
 
 from finch.base import Migration, SqlMigration
-from nova.models import *
+from nova.models import EmailAddress, Newsletter, NewsletterIssue, Subscription
 
 class AddClientAddr(SqlMigration):
     sql = "ALTER TABLE {table} ADD COLUMN client_addr VARCHAR(16)"
@@ -235,3 +235,15 @@ class AllowNullRenderedTemplate(SqlMigration):
     class Meta:
         model = NewsletterIssue
         requires = [AddNewsletterIssueFields,]
+
+class AddDefaultTrackingDomainField(SqlMigration):
+    """
+    Adds a default tracking domain field to the
+    Newsletter model.
+    """
+    sql = """\
+    ALTER TABLE {table}
+    ADD COLUMN default_tracking_domain VARCHAR(255) NOT NULL DEFAULT ''"""
+
+    class Meta:
+        model = Newsletter

@@ -190,6 +190,8 @@ class Newsletter(models.Model):
         help_text=_("A whitespace separated list of email addresses."))
     default_template = models.CharField(max_length=255, blank=True,
         help_text=_("The name of a default template to use for issues of this newsletter."))
+    default_tracking_domain = models.CharField(max_length=255, blank=True,
+            help_text=_("A domain for which links should be tracked. Used as the default value for the tracking domain field on an issue of this newsletter."))
     created_at = models.DateTimeField(auto_now_add=True)
 
     subscriptions = models.ManyToManyField(EmailAddress, through='Subscription')
@@ -249,6 +251,10 @@ class NewsletterIssue(models.Model):
                     self.template = get_raw_template(self.newsletter.default_template)
                 except:
                     pass
+
+        if not self.tracking_domain:
+            if self.newsletter.default_tracking_domain:
+                self.tracking_domain = self.newsletter.default_tracking_domain
 
         super(NewsletterIssue, self).save(*args, **kwargs)
 
@@ -382,13 +388,13 @@ class NewsletterIssue(models.Model):
                 template=self.render())
 
         for send_to in email_addresses:
-                # Send multipart message
-                send_multipart_mail(subject,
-                        txt_body=rendered_plaintext_template,
-                        html_body=rendered_html_template,
-                        from_email=self.newsletter.from_email,
-                        headers=headers,
-                        recipient_list=(send_to.email,))
+            # Send multipart message
+            send_multipart_mail(subject,
+                    txt_body=rendered_plaintext_template,
+                    html_body=rendered_html_template,
+                    from_email=self.newsletter.from_email,
+                    headers=headers,
+                    recipient_list=(send_to.email,))
 
     def send_test(self):
         """
