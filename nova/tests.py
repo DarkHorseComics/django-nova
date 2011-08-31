@@ -275,6 +275,34 @@ class TestNewsletterIssueModel(TestCase):
         self.assertEqual(new_template,
             NewsletterIssue.objects.get(pk=issue.pk).template)
 
+    def test_default_tracking_domain(self):
+        """
+        Verify that on save a NewsletterIssue is assigned
+        a default tracking domain from the parent Newsletter.
+        """
+        tracking_domain = 'darkhorse.com'
+        self.newsletter1.default_tracking_domain = tracking_domain
+        self.newsletter1.save()
+
+        # Sanity check
+        self.assertEqual(self.newsletter1.default_tracking_domain, tracking_domain)
+
+        issue = NewsletterIssue()
+        issue.subject = 'Test'
+        issue.newsletter = self.newsletter1
+        issue.save()
+
+        self.assertTrue(issue.tracking_domain not in ('', None,))
+        self.assertEqual(issue.tracking_domain, issue.newsletter.default_tracking_domain)
+
+        # Verify an existing tracking domain is not overwritten
+        tracking_domain = 'tfaw.com'
+        issue.tracking_domain = tracking_domain
+        issue.save()
+
+        self.assertEqual(tracking_domain, issue.tracking_domain)
+        self.assertNotEqual(issue.tracking_domain, issue.newsletter.default_tracking_domain)
+
     def test_premailer(self):
         """
         If the premailer script is enabled, test the premailer method
