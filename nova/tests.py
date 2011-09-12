@@ -319,7 +319,6 @@ class TestNewsletterIssueModel(TestCase):
             </style>
             </head>
             <body>
-            <!-- a comment -->
             <p class="foo">Some Text</p>
             </body>
             </html>"""
@@ -330,7 +329,6 @@ class TestNewsletterIssueModel(TestCase):
             
             </head>
             <body>
-            <!-- a comment -->
             <p class="foo" style="color: red;">Some Text</p>
             </body>
             </html>"""
@@ -770,6 +768,7 @@ class TestNovaHelpers(TestCase):
                 <title>Test Link Tracking</title>
             </head>
             <body>
+                <!-- some links -->
                 <a href="http://www.google.com/">Google</a>
                 <a href="http://www.example.com/?param=true">Example 1</a>
                 <a href="http://subdomain.example.com/">Example 2</a>
@@ -792,6 +791,10 @@ class TestNovaHelpers(TestCase):
 
         # Assert that only two links were tracked
         self.assertEqual(tracked_template.count('tracked'), 2)
+
+        # Assert that the html comment wasn't munged
+        self.assertTrue("<!-- some links -->" in tracked_template)
+        self.assertTrue("<!--<!--" not in tracked_template)
 
 class TestSubscriptionForm(TestCase):
     """
