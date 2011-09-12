@@ -319,6 +319,7 @@ class TestNewsletterIssueModel(TestCase):
             </style>
             </head>
             <body>
+            <!-- a comment -->
             <p class="foo">Some Text</p>
             </body>
             </html>"""
@@ -329,6 +330,7 @@ class TestNewsletterIssueModel(TestCase):
             
             </head>
             <body>
+            <!-- a comment -->
             <p class="foo" style="color: red;">Some Text</p>
             </body>
             </html>"""
