@@ -73,7 +73,7 @@ def canonicalize_links(html, base_url=None):
     for link in protocol_links:
         link['href'] = 'http://%s' % (link['href'],)
 
-    return unicode(soup)
+    return smart_str(soup)
 
 def get_anchor_text(anchor):
     """
@@ -160,4 +160,4 @@ def track_document(html, domain=None, campaign=None, source='newsletter', medium
             # TODO: Log the error
             pass
 
-    return unicode(soup)
+    return smart_str(soup)
