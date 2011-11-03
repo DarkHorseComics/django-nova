@@ -793,7 +793,7 @@ class TestNovaHelpers(TestCase):
         self.assertTrue(track2 in tracked_template)
         self.assertTrue(track3 in tracked_template)
 
-        # Assert that only two links were tracked
+        # Assert that only three links were tracked
         self.assertEqual(tracked_template.count('tracked'), 3)
 
         # Assert that the html comment wasn't munged
