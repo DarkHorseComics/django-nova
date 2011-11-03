@@ -1,0 +1,5 @@
+BeautifulSoup==3.2.0
+Django>=1.2
+mock==0.7.0b3
+hg+http://fung.darkhorse.com/hg/django-html5#=egg=DjangoHTML5
+hg+http://fung.darkhorse.com/hg/finch#=egg=Finch
