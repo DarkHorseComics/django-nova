@@ -773,6 +773,8 @@ class TestNovaHelpers(TestCase):
                 <a href="http://www.example.com/?param=true">Example 1</a>
                 <a href="http://subdomain.example.com/">Example 2</a>
                 <a href="http://www.bing.com/">Bing</a>
+                <!-- url with a space at the end -->
+                <a href="http://www.example.com/ ">Example 3</a>
             </body>
         </html>
         """
@@ -784,13 +786,15 @@ class TestNovaHelpers(TestCase):
         # Expected results
         track1 = """<a href="http://www.example.com/?param=true&amp;utm_campaign={campaign}&amp;utm_medium={medium}&amp;utm_source={source}&amp;utm_term={term}" class="tracked">Example 1</a>""".format(campaign=campaign, source=source, medium=medium, term='%s-%s-%s' % (source, 'link-2', 'Example+1',))
         track2 = """<a href="http://subdomain.example.com/?utm_campaign={campaign}&amp;utm_medium={medium}&amp;utm_source={source}&amp;utm_term={term}" class="tracked">Example 2</a>""".format(campaign=campaign, source=source, medium=medium, term='%s-%s-%s' % (source, 'link-3', 'Example+2',))
+        track3 = """<a href="http://www.example.com/?utm_campaign={campaign}&amp;utm_medium={medium}&amp;utm_source={source}&amp;utm_term={term}" class="tracked">Example 3</a>""".format(campaign=campaign, source=source, medium=medium, term='%s-%s-%s' % (source, 'link-5', 'Example+3',))
 
         # Assert both example.com links were tracked
         self.assertTrue(track1 in tracked_template)
         self.assertTrue(track2 in tracked_template)
+        self.assertTrue(track3 in tracked_template)
 
         # Assert that only two links were tracked
-        self.assertEqual(tracked_template.count('tracked'), 2)
+        self.assertEqual(tracked_template.count('tracked'), 3)
 
         # Assert that the html comment wasn't munged
         self.assertTrue("<!-- some links -->" in tracked_template)

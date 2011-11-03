@@ -135,6 +135,7 @@ def track_document(html, domain=None, campaign=None, source='newsletter', medium
             # Skip links that have already been tracked
             if TRACKED_LINK_CLASS not in anchor_css_class:
                 url = anchor['href']
+                url = url.strip()
                 parsed_url = urlparse(url)
 
                 # Only track links from specific domains
