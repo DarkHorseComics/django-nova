@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html lang="en">
+    {% load i18n %}
+    <head>
+        <meta charset="utf-8" />
+        <title>{% block page_title %}{% endblock %} | {% trans "Django Nova" %}</title>
+    </head>
+    <body>
+        {% block content %}{% endblock %}
+    </body>
+</html>
