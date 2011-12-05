@@ -706,6 +706,10 @@ class TestManagement(TestCase):
 
         # Write the emails to the file
         with os.fdopen(handle, 'w+') as f:
+            # Write an invalid email to the file for good measure
+            f.write("%s\n" % "invalid")
+
+            # Write our emails to the file
             for address in emails:
                 f.write("%s\n" % address.email)
 
@@ -713,7 +717,7 @@ class TestManagement(TestCase):
             f.seek(0)
 
             # Sanity check
-            self.assertEqual(len(emails), len(f.readlines()))
+            self.assertEqual(len(emails), len(f.readlines()) - 1)
 
         # Call our bulk unsubscribe command
         management.call_command('bulk_unsubscribe', filename=path, delete=False, verbose=True)
