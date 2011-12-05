@@ -1,6 +1,8 @@
 """
 Basic unit and functional tests for newsletter signups
 """
+import os
+import tempfile
 from datetime import datetime
 from BeautifulSoup import BeautifulSoup
 
@@ -676,7 +678,57 @@ class TestManagement(TestCase):
         #no reminders will be sent as not enough time has elapsed
         management.call_command('send_reminders', days_elapsed=1)
         self.assertEqual(len(mail.outbox), 0)
-        
+
+    def test_bulk_unsubscribe(self):
+        """
+        Ensure the bulk_unsubscribe command works as expected.
+        """
+        # Create some email addresses
+        emails = []
+        emails.append(_make_email('test_unsub_m1@example.com'))
+        emails.append(_make_email('test_unsub_m2@example.com'))
+        emails.append(_make_email('test_unsub_m3@example.com'))
+
+        # Create a newsletter
+        newsletter = _make_newsletter("Test Newsletter Manage")
+
+        # Subscribe email to newsletter
+        for email in emails:
+            subscription, created = email.subscribe(newsletter)
+
+            # Verify subscription
+            self.assertTrue(created)
+            self.assertEqual(newsletter, subscription.newsletter)
+            self.assertEqual(Subscription.objects.filter(email_address=email).count(), 1)
+
+        # Create a temp file
+        handle, path = tempfile.mkstemp()
+
+        # Write the emails to the file
+        with os.fdopen(handle, 'w+') as f:
+            for address in emails:
+                f.write("%s\n" % address.email)
+
+            # Rewind
+            f.seek(0)
+
+            # Sanity check
+            self.assertEqual(len(emails), len(f.readlines()))
+
+        # Call our bulk unsubscribe command
+        management.call_command('bulk_unsubscribe', filename=path, delete=False, verbose=True)
+
+        # Verify the emails were unsubscribed
+        for address in emails:
+            self.assertEqual(Subscription.objects.filter(email_address=address).count(), 0)
+
+        # Call our bulk unsubscribe command
+        management.call_command('bulk_unsubscribe', filename=path, delete_emails=True, verbose=True)
+
+        # Verify the emails were deleted
+        for address in emails:
+            self.assertEqual(EmailAddress.objects.filter(email=address.email).count(), 0)
+
         
 class TestNovaHelpers(TestCase):
     """
