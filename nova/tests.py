@@ -831,6 +831,8 @@ class TestNovaHelpers(TestCase):
                 <a href="http://www.bing.com/">Bing</a>
                 <!-- url with a space at the end -->
                 <a href="http://www.example.com/ ">Example 3</a>
+                <!-- missing href attr -->
+                <a>hello</a>
             </body>
         </html>
         """
