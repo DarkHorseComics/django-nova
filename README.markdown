@@ -29,6 +29,10 @@ Installation
 ------------
 Install django-nova in your site-packages directory:
 
+    # From GitHub
+    pip install git+git://github.com/DarkHorseComics/django-nova.git#egg=DjangoNova
+
+    # From BitBucket
     pip install https://bitbucket.org/darkhorse/django-nova
 
 Add django-nova to your installed apps in settings.py:
